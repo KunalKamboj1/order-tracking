@@ -8,11 +8,12 @@ embedded = true
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_orders,read_fulfillments,write_application_charges"
+scopes = "read_orders,read_fulfillments"
 
 [auth]
 redirect_urls = [
-  "https://shopify-tracking-backend-new.onrender.com/callback"
+  "https://shopify-tracking-backend-new.onrender.com/callback",
+  "https://shopify-tracking-backend-new.onrender.com/billing/callback"
 ]
 
 [webhooks]
