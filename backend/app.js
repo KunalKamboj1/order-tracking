@@ -410,9 +410,6 @@ app.post('/install-theme-block', async (req, res) => {
   });
 });
 
-// Health check endpoint
-});
-
 // Billing Routes
 
 // Create recurring subscription charge ($15/month with 3-day trial)
