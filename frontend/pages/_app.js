@@ -1,6 +1,7 @@
 import { AppProvider } from '@shopify/polaris';
 import { Provider as AppBridgeProvider } from '@shopify/app-bridge-react';
 import '@shopify/polaris/build/esm/styles.css';
+import '../styles/globals.css';
 
 function MyApp({ Component, pageProps }) {
   const host = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('host');

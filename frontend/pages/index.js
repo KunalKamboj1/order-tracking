@@ -36,7 +36,30 @@ export default function Home() {
   useEffect(() => {
     setIsClient(true);
     setAppBridge(app);
+    
+    // Check billing status after component mounts
+    checkBillingStatus();
   }, [app]);
+
+  const checkBillingStatus = async () => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const shopParam = urlParams.get('shop');
+      
+      if (!shopParam) return; // Skip if no shop parameter
+      
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+      const response = await axios.get(`${backendUrl}/billing/status?shop=${encodeURIComponent(shopParam)}`);
+      
+      if (!response.data.hasActiveBilling) {
+        // Redirect to pricing page if no active billing
+        window.location.href = `/pricing?shop=${encodeURIComponent(shopParam)}`;
+      }
+    } catch (error) {
+       console.error('Error checking billing status:', error);
+       // Continue without redirect on error to avoid breaking the app
+     }
+   };
 
   const handleFetchTracking = async () => {
     console.log('Order ID entered:', orderId);
