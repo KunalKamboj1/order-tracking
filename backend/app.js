@@ -175,9 +175,9 @@ app.get('/tracking', async (req, res) => {
       // Try multiple approaches to find the order
       const orderName = order_id.substring(1); // Remove the # prefix
       
-      // First try: Search by order number without #
-      let orderSearchUrl = `https://${shopDomain}/admin/api/2023-10/orders.json?name=${orderName}&status=any`;
-      console.log('Making order search request (attempt 1):', orderSearchUrl);
+      // Fetch recent orders with limit and filter client-side to avoid fetching all orders
+      let orderSearchUrl = `https://${shopDomain}/admin/api/2023-10/orders.json?limit=50&status=any&fields=id,name,order_number`;
+      console.log('Making order search request:', orderSearchUrl);
       
       try {
         const orderSearchResponse = await axios.get(orderSearchUrl, {
@@ -186,12 +186,26 @@ app.get('/tracking', async (req, res) => {
           }
         });
         
-        let orders = orderSearchResponse.data.orders;
+        let orders = orderSearchResponse.data.orders || [];
+        console.log('API returned', orders.length, 'orders, filtering for:', order_id);
         
-        // If no orders found, try with # prefix
-        if (!orders || orders.length === 0) {
-          orderSearchUrl = `https://${shopDomain}/admin/api/2023-10/orders.json?name=${encodeURIComponent(order_id)}&status=any`;
-          console.log('Making order search request (attempt 2):', orderSearchUrl);
+        // Filter orders client-side to find exact match
+        let matchedOrder = null;
+        
+        // Try to match by name field (with or without #)
+        matchedOrder = orders.find(order => 
+          order.name === order_id || 
+          order.name === orderName ||
+          order.order_number === orderName ||
+          order.order_number === parseInt(orderName)
+        );
+        
+        console.log('Matched order:', matchedOrder ? `ID: ${matchedOrder.id}, Name: ${matchedOrder.name}` : 'None');
+        
+        if (!matchedOrder) {
+          // If not found in first 50, try with different status filters
+          console.log('Order not found in recent orders, trying with all statuses...');
+          orderSearchUrl = `https://${shopDomain}/admin/api/2023-10/orders.json?limit=100&fields=id,name,order_number`;
           
           const orderSearchResponse2 = await axios.get(orderSearchUrl, {
             headers: {
@@ -199,25 +213,21 @@ app.get('/tracking', async (req, res) => {
             }
           });
           
-          orders = orderSearchResponse2.data.orders;
+          orders = orderSearchResponse2.data.orders || [];
+          console.log('Second API call returned', orders.length, 'orders');
+          
+          matchedOrder = orders.find(order => 
+            order.name === order_id || 
+            order.name === orderName ||
+            order.order_number === orderName ||
+            order.order_number === parseInt(orderName)
+          );
         }
         
-        // If still no orders, try searching by order_number field
-        if (!orders || orders.length === 0) {
-          orderSearchUrl = `https://${shopDomain}/admin/api/2023-10/orders.json?order_number=${orderName}&status=any`;
-          console.log('Making order search request (attempt 3):', orderSearchUrl);
-          
-          const orderSearchResponse3 = await axios.get(orderSearchUrl, {
-            headers: {
-              'X-Shopify-Access-Token': accessToken
-            }
-          });
-          
-          orders = orderSearchResponse3.data.orders;
-        }
-        console.log('Order search returned', orders.length, 'orders');
+        const finalOrders = matchedOrder ? [matchedOrder] : [];
+        console.log('Final filtered result:', finalOrders.length, 'orders');
         
-        if (orders.length === 0) {
+        if (finalOrders.length === 0) {
           console.log('No order found with name:', order_id);
           return res.json({
             tracking_number: null,
@@ -227,8 +237,9 @@ app.get('/tracking', async (req, res) => {
           });
         }
         
-        numericOrderId = orders[0].id;
+        numericOrderId = finalOrders[0].id;
         console.log('Resolved order name', order_id, 'to numeric ID:', numericOrderId);
+        console.log('Matched order details:', finalOrders[0]);
         
       } catch (searchError) {
         console.error('Error searching for order by name:', searchError.message);
