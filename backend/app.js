@@ -158,8 +158,12 @@ app.get('/tracking', async (req, res) => {
     if (order_id.startsWith('#')) {
       console.log('Resolving order name to numeric ID:', order_id);
       
-      const orderSearchUrl = `https://${shopDomain}/admin/api/2023-10/orders.json?name=${encodeURIComponent(order_id)}`;
-      console.log('Making order search request to:', orderSearchUrl);
+      // Try multiple approaches to find the order
+      const orderName = order_id.substring(1); // Remove the # prefix
+      
+      // First try: Search by order number without #
+      let orderSearchUrl = `https://${shopDomain}/admin/api/2023-10/orders.json?name=${orderName}&status=any`;
+      console.log('Making order search request (attempt 1):', orderSearchUrl);
       
       try {
         const orderSearchResponse = await axios.get(orderSearchUrl, {
@@ -168,7 +172,35 @@ app.get('/tracking', async (req, res) => {
           }
         });
         
-        const orders = orderSearchResponse.data.orders;
+        let orders = orderSearchResponse.data.orders;
+        
+        // If no orders found, try with # prefix
+        if (!orders || orders.length === 0) {
+          orderSearchUrl = `https://${shopDomain}/admin/api/2023-10/orders.json?name=${encodeURIComponent(order_id)}&status=any`;
+          console.log('Making order search request (attempt 2):', orderSearchUrl);
+          
+          const orderSearchResponse2 = await axios.get(orderSearchUrl, {
+            headers: {
+              'X-Shopify-Access-Token': accessToken
+            }
+          });
+          
+          orders = orderSearchResponse2.data.orders;
+        }
+        
+        // If still no orders, try searching by order_number field
+        if (!orders || orders.length === 0) {
+          orderSearchUrl = `https://${shopDomain}/admin/api/2023-10/orders.json?order_number=${orderName}&status=any`;
+          console.log('Making order search request (attempt 3):', orderSearchUrl);
+          
+          const orderSearchResponse3 = await axios.get(orderSearchUrl, {
+            headers: {
+              'X-Shopify-Access-Token': accessToken
+            }
+          });
+          
+          orders = orderSearchResponse3.data.orders;
+        }
         console.log('Order search returned', orders.length, 'orders');
         
         if (orders.length === 0) {
