@@ -1,19 +1,37 @@
-{% if block.settings.show_heading %}
-  <h2>{{ block.settings.heading }}</h2>
-{% endif %}
+{{ 'tracking-widget.css' | asset_url | stylesheet_tag }}
 
-<iframe
-  src="{{ block.settings.widget_url }}?shop={{ shop.permanent_domain }}"
-  width="100%"
-  height="{{ block.settings.iframe_height }}"
-  style="border:none; min-height:300px;"
-  loading="lazy">
-</iframe>
+<div class="tracking-widget" style="color: {{ block.settings.text_color }};">
+  {% if block.settings.show_heading %}
+    <h2 class="tracking-widget__heading">{{ block.settings.heading }}</h2>
+  {% endif %}
+  
+  <div class="tracking-widget__form">
+    <input 
+      type="text" 
+      id="tracking-order-input-{{ block.id }}" 
+      class="tracking-widget__input"
+      placeholder="Enter your order number" 
+    />
+    <button 
+      id="tracking-order-btn-{{ block.id }}" 
+      class="tracking-widget__button"
+      style="background-color: {{ block.settings.button_color }};"
+    >
+      {{ block.settings.button_text }}
+    </button>
+  </div>
+  
+  <div id="tracking-results-{{ block.id }}" class="tracking-widget__results"></div>
+</div>
 
-<noscript>
-  <p>JavaScript is required to use the order tracking widget.</p>
-  <p><a href="{{ block.settings.widget_url }}?shop={{ shop.permanent_domain }}" target="_blank">Click here to track your order</a></p>
-</noscript>
+<script>
+  window.trackingWidgetSettings = window.trackingWidgetSettings || {};
+  window.trackingWidgetSettings['{{ block.id }}'] = {
+    shopDomain: '{{ shop.permanent_domain }}'
+  };
+</script>
+
+{{ 'tracking-widget.js' | asset_url | script_tag }}
 
 {% schema %}
 {
@@ -23,8 +41,8 @@
     {
       "type": "text",
       "id": "heading",
-      "label": "Widget Heading",
-      "default": "Track Your Order"
+      "label": "Heading",
+      "default": "Track your order"
     },
     {
       "type": "checkbox",
@@ -33,17 +51,22 @@
       "default": true
     },
     {
-      "type": "number",
-      "id": "iframe_height",
-      "label": "Widget Height (px)",
-      "default": 400
+      "type": "color",
+      "id": "text_color",
+      "label": "Text color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_color",
+      "label": "Button color",
+      "default": "#1a73e8"
     },
     {
       "type": "text",
-      "id": "widget_url",
-      "label": "Widget URL",
-      "default": "https://my-netlify-app.netlify.app",
-      "info": "URL where your tracking widget is hosted (without trailing slash)"
+      "id": "button_text",
+      "label": "Button text",
+      "default": "Track Order"
     }
   ]
 }
