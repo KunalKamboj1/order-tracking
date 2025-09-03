@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Page,
   Card,
@@ -20,10 +20,23 @@ export default function Home() {
   const [trackingData, setTrackingData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isClient, setIsClient] = useState(false);
+  const [appBridge, setAppBridge] = useState(null);
   
-  // Get App Bridge instance (will be null if not in Shopify Admin)
-  const app = useAppBridge();
-  const isEmbedded = !!app;
+  // Always call useAppBridge hook, but handle errors gracefully
+  let app = null;
+  try {
+    app = useAppBridge();
+  } catch (e) {
+    // App Bridge not available during SSR or standalone mode
+  }
+  
+  const isEmbedded = isClient && !!appBridge;
+  
+  useEffect(() => {
+    setIsClient(true);
+    setAppBridge(app);
+  }, [app]);
 
   const handleFetchTracking = async () => {
     console.log('Order ID entered:', orderId);
@@ -49,7 +62,7 @@ export default function Home() {
       
       let response;
       
-      if (isEmbedded && app) {
+      if (isEmbedded && appBridge) {
         // When embedded in Shopify Admin, use fetch with proper headers
         console.log('Using fetch for embedded app');
         const fetchResponse = await fetch(requestUrl, {
