@@ -38,7 +38,7 @@ export default function Home() {
       const urlParams = new URLSearchParams(window.location.search);
       const shop = urlParams.get('shop') || window.location.hostname;
       
-      const requestUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/tracking?shop=${shop}&order_id=${orderId}`;
+      const requestUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/tracking?shop=${encodeURIComponent(shop)}&order_id=${encodeURIComponent(orderId)}`;
       console.log('Making request to:', requestUrl);
       
       const response = await axios.get(requestUrl);
