@@ -3,15 +3,16 @@ import { Provider as AppBridgeProvider } from '@shopify/app-bridge-react';
 import '@shopify/polaris/build/esm/styles.css';
 
 function MyApp({ Component, pageProps }) {
+  const host = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('host');
+  
   const config = {
     apiKey: process.env.NEXT_PUBLIC_SHOPIFY_API_KEY,
-    host: new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('host') || '',
+    host: host || '',
     forceRedirect: true,
   };
 
-  return (
-    <AppBridgeProvider config={config}>
-      <AppProvider
+  const AppContent = (
+    <AppProvider
         i18n={{
           Polaris: {
             Avatar: {
@@ -47,8 +48,19 @@ function MyApp({ Component, pageProps }) {
       >
         <Component {...pageProps} />
       </AppProvider>
-    </AppBridgeProvider>
   );
+
+  // Only use AppBridge when host is available (inside Shopify admin)
+  if (host) {
+    return (
+      <AppBridgeProvider config={config}>
+        {AppContent}
+      </AppBridgeProvider>
+    );
+  }
+
+  // Standalone mode (outside Shopify admin)
+  return AppContent;
 }
 
 export default MyApp;
