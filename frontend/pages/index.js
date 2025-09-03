@@ -21,6 +21,9 @@ export default function Home() {
   const [error, setError] = useState('');
 
   const handleFetchTracking = async () => {
+    console.log('Order ID value:', orderId);
+    console.log('Backend URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
+    
     if (!orderId.trim()) {
       setError('Please enter an Order ID');
       return;
@@ -35,9 +38,10 @@ export default function Home() {
       const urlParams = new URLSearchParams(window.location.search);
       const shop = urlParams.get('shop') || window.location.hostname;
       
-      const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/tracking?shop=${shop}&order_id=${orderId}`
-      );
+      const requestUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/tracking?shop=${shop}&order_id=${orderId}`;
+      console.log('Making request to:', requestUrl);
+      
+      const response = await axios.get(requestUrl);
 
       setTrackingData(response.data);
     } catch (err) {
