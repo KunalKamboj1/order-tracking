@@ -138,10 +138,10 @@ export default function Home() {
 
       {loading && (
         <Card sectioned>
-          <Stack alignment="center">
+          <BlockStack align="center">
             <Spinner size="small" />
             <p>Loading tracking information...</p>
-          </Stack>
+          </BlockStack>
         </Card>
       )}
 
