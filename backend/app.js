@@ -172,7 +172,16 @@ app.get('/tracking', async (req, res) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    environment: {
+      NODE_ENV: process.env.NODE_ENV,
+      hasApiKey: !!process.env.SHOPIFY_API_KEY,
+      host: process.env.HOST,
+      port: process.env.PORT
+    }
+  });
 });
 
 app.listen(PORT, () => {
