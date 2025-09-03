@@ -13,16 +13,23 @@ import {
   Spinner,
 } from '@shopify/polaris';
 import axios from 'axios';
+import { useAppBridge } from '@shopify/app-bridge-react';
+import { authenticatedFetch } from '@shopify/app-bridge-utils';
 
 export default function Home() {
   const [orderId, setOrderId] = useState('');
-  const [loading, setLoading] = useState(false);
   const [trackingData, setTrackingData] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Get App Bridge instance (will be null if not in Shopify Admin)
+  const app = useAppBridge();
+  const isEmbedded = !!app;
 
   const handleFetchTracking = async () => {
-    console.log('Order ID value:', orderId);
+    console.log('Order ID entered:', orderId);
     console.log('Backend URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
+    console.log('Is embedded in Shopify Admin:', isEmbedded);
     
     if (!orderId.trim()) {
       setError('Please enter an Order ID');
@@ -41,7 +48,24 @@ export default function Home() {
       const requestUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/tracking?shop=${encodeURIComponent(shop)}&order_id=${encodeURIComponent(orderId)}`;
       console.log('Making request to:', requestUrl);
       
-      const response = await axios.get(requestUrl);
+      let response;
+      
+      if (isEmbedded && app) {
+        // Use App Bridge authenticated fetch when embedded in Shopify Admin
+        console.log('Using App Bridge authenticated fetch');
+        const fetch = authenticatedFetch(app);
+        const fetchResponse = await fetch(requestUrl);
+        const data = await fetchResponse.json();
+        response = {
+          data: data,
+          status: fetchResponse.status,
+          headers: fetchResponse.headers
+        };
+      } else {
+        // Use regular axios when running standalone
+        console.log('Using regular axios fetch');
+        response = await axios.get(requestUrl);
+      }
       
       console.log('Full response:', response);
       console.log('Response status:', response.status);
