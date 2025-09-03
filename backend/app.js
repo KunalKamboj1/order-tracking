@@ -81,14 +81,22 @@ app.get('/auth', (req, res) => {
 app.get('/callback', async (req, res) => {
   const { code, shop, state } = req.query;
 
+  console.log('=== OAUTH CALLBACK ===');
+  console.log('Shop:', shop);
+  console.log('Code:', code ? 'Present' : 'Missing');
+  console.log('State:', state);
+
   if (!code || !shop) {
+    console.log('Missing required parameters for OAuth');
     return res.status(400).json({ error: 'Missing required parameters' });
   }
 
   try {
     const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
+    console.log('Shop domain:', shopDomain);
     
     // Exchange code for access token
+    console.log('Exchanging code for access token...');
     const tokenResponse = await axios.post(`https://${shopDomain}/admin/oauth/access_token`, {
       client_id: process.env.SHOPIFY_API_KEY,
       client_secret: process.env.SHOPIFY_API_SECRET,
@@ -96,12 +104,15 @@ app.get('/callback', async (req, res) => {
     });
 
     const { access_token } = tokenResponse.data;
+    console.log('Access token received:', access_token ? `${access_token.substring(0, 10)}...` : 'None');
 
     // Store token in database
-    await pool.query(
-      'INSERT INTO shops (shop, access_token) VALUES ($1, $2) ON CONFLICT (shop) DO UPDATE SET access_token = EXCLUDED.access_token',
+    console.log('Storing token in database...');
+    const result = await pool.query(
+      'INSERT INTO shops (shop, access_token) VALUES ($1, $2) ON CONFLICT (shop) DO UPDATE SET access_token = EXCLUDED.access_token RETURNING *',
       [shopDomain, access_token]
     );
+    console.log('Database update result:', result.rows[0] ? 'Success' : 'Failed');
 
     res.json({ success: true, message: 'App installed successfully' });
   } catch (error) {
@@ -139,6 +150,7 @@ app.get('/tracking', async (req, res) => {
 
     const accessToken = result.rows[0].access_token;
     console.log('Access token found:', accessToken ? 'Yes' : 'No');
+    console.log('Access token (first 10 chars):', accessToken ? `${accessToken.substring(0, 10)}...` : 'None');
 
     let numericOrderId = order_id;
     
