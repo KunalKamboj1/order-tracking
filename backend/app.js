@@ -415,30 +415,42 @@ app.post('/install-theme-block', async (req, res) => {
 // Create recurring subscription charge ($15/month with 3-day trial)
 app.get('/billing/subscribe', async (req, res) => {
   const { shop } = req.query;
+  console.log(`[BILLING] Starting recurring subscription for shop: ${shop}`);
+  console.log(`[BILLING] Request query params:`, req.query);
+  console.log(`[BILLING] BACKEND_URL: ${process.env.BACKEND_URL}`);
   
   if (!shop) {
+    console.log(`[BILLING] ERROR: Missing shop parameter`);
     return res.status(400).json({ error: 'Shop parameter is required' });
   }
 
   try {
     // Get shop's access token
+    console.log(`[BILLING] Fetching access token for shop: ${shop}`);
     const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shop]);
     if (shopResult.rows.length === 0) {
+      console.log(`[BILLING] ERROR: Shop not found in database: ${shop}`);
       return res.status(404).json({ error: 'Shop not found' });
     }
 
     const accessToken = shopResult.rows[0].access_token;
+    console.log(`[BILLING] Access token retrieved for shop: ${shop}`);
     
     // Create recurring charge via Shopify Billing API
+    const returnUrl = `${process.env.BACKEND_URL}/billing/callback?shop=${shop}&type=recurring`;
     const chargeData = {
       recurring_application_charge: {
         name: 'Order Tracking Pro - Monthly',
         price: 15.00,
         trial_days: 3,
         test: true, // Set to false in production
-        return_url: `${process.env.BACKEND_URL}/billing/callback?shop=${shop}&type=recurring`
+        return_url: returnUrl
       }
     };
+    
+    console.log(`[BILLING] Creating recurring charge with data:`, JSON.stringify(chargeData, null, 2));
+    console.log(`[BILLING] Return URL: ${returnUrl}`);
+    console.log(`[BILLING] Shopify API URL: https://${shop}/admin/api/2023-10/recurring_application_charges.json`);
 
     const response = await axios.post(
       `https://${shop}/admin/api/2023-10/recurring_application_charges.json`,
@@ -452,18 +464,28 @@ app.get('/billing/subscribe', async (req, res) => {
     );
 
     const charge = response.data.recurring_application_charge;
+    console.log(`[BILLING] Shopify API response:`, JSON.stringify(charge, null, 2));
     
     // Store charge in database
+    console.log(`[BILLING] Storing charge in database: ${charge.id}`);
     await pool.query(
       'INSERT INTO charges (shop, charge_id, status, type, amount, trial_days) VALUES ($1, $2, $3, $4, $5, $6)',
       [shop, charge.id.toString(), 'pending', 'recurring', 15.00, 3]
     );
+    console.log(`[BILLING] Charge stored successfully`);
 
     // Redirect to Shopify's confirmation URL
+    console.log(`[BILLING] Redirecting to confirmation URL: ${charge.confirmation_url}`);
     res.redirect(charge.confirmation_url);
     
   } catch (error) {
-    console.error('Error creating recurring charge:', error);
+    console.error('[BILLING] ERROR creating recurring charge:', error);
+    console.error('[BILLING] Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      headers: error.response?.headers
+    });
     res.status(500).json({ error: 'Failed to create subscription' });
   }
 });
@@ -471,29 +493,41 @@ app.get('/billing/subscribe', async (req, res) => {
 // Create lifetime charge ($150 one-time with 3-day trial)
 app.get('/billing/lifetime', async (req, res) => {
   const { shop } = req.query;
+  console.log(`[BILLING] Starting lifetime payment for shop: ${shop}`);
+  console.log(`[BILLING] Request query params:`, req.query);
+  console.log(`[BILLING] BACKEND_URL: ${process.env.BACKEND_URL}`);
   
   if (!shop) {
+    console.log(`[BILLING] ERROR: Missing shop parameter`);
     return res.status(400).json({ error: 'Shop parameter is required' });
   }
 
   try {
     // Get shop's access token
+    console.log(`[BILLING] Fetching access token for shop: ${shop}`);
     const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shop]);
     if (shopResult.rows.length === 0) {
+      console.log(`[BILLING] ERROR: Shop not found in database: ${shop}`);
       return res.status(404).json({ error: 'Shop not found' });
     }
 
     const accessToken = shopResult.rows[0].access_token;
+    console.log(`[BILLING] Access token retrieved for shop: ${shop}`);
     
     // Create one-time charge via Shopify Billing API
+    const returnUrl = `${process.env.BACKEND_URL}/billing/callback?shop=${shop}&type=lifetime`;
     const chargeData = {
       application_charge: {
         name: 'Order Tracking Pro - Lifetime',
         price: 150.00,
         test: true, // Set to false in production
-        return_url: `${process.env.BACKEND_URL}/billing/callback?shop=${shop}&type=lifetime`
+        return_url: returnUrl
       }
     };
+    
+    console.log(`[BILLING] Creating lifetime charge with data:`, JSON.stringify(chargeData, null, 2));
+    console.log(`[BILLING] Return URL: ${returnUrl}`);
+    console.log(`[BILLING] Shopify API URL: https://${shop}/admin/api/2023-10/application_charges.json`);
 
     const response = await axios.post(
       `https://${shop}/admin/api/2023-10/application_charges.json`,
@@ -507,18 +541,28 @@ app.get('/billing/lifetime', async (req, res) => {
     );
 
     const charge = response.data.application_charge;
+    console.log(`[BILLING] Shopify API response:`, JSON.stringify(charge, null, 2));
     
     // Store charge in database
+    console.log(`[BILLING] Storing charge in database: ${charge.id}`);
     await pool.query(
       'INSERT INTO charges (shop, charge_id, status, type, amount, trial_days) VALUES ($1, $2, $3, $4, $5, $6)',
       [shop, charge.id.toString(), 'pending', 'lifetime', 150.00, 3]
     );
+    console.log(`[BILLING] Charge stored successfully`);
 
     // Redirect to Shopify's confirmation URL
+    console.log(`[BILLING] Redirecting to confirmation URL: ${charge.confirmation_url}`);
     res.redirect(charge.confirmation_url);
     
   } catch (error) {
-    console.error('Error creating lifetime charge:', error);
+    console.error('[BILLING] ERROR creating lifetime charge:', error);
+    console.error('[BILLING] Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      headers: error.response?.headers
+    });
     res.status(500).json({ error: 'Failed to create lifetime payment' });
   }
 });
@@ -526,39 +570,61 @@ app.get('/billing/lifetime', async (req, res) => {
 // Handle billing callback after merchant approval
 app.get('/billing/callback', async (req, res) => {
   const { shop, type, charge_id } = req.query;
+  console.log(`[BILLING CALLBACK] Starting callback processing`);
+  console.log(`[BILLING CALLBACK] Request query params:`, req.query);
+  console.log(`[BILLING CALLBACK] Request headers:`, req.headers);
+  console.log(`[BILLING CALLBACK] FRONTEND_URL: ${process.env.FRONTEND_URL}`);
   
   if (!shop || !type) {
+    console.log(`[BILLING CALLBACK] ERROR: Missing required parameters - shop: ${shop}, type: ${type}`);
     return res.status(400).json({ error: 'Shop and type parameters are required' });
   }
 
   try {
     // Get shop's access token
+    console.log(`[BILLING CALLBACK] Fetching access token for shop: ${shop}`);
     const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shop]);
     if (shopResult.rows.length === 0) {
+      console.log(`[BILLING CALLBACK] ERROR: Shop not found in database: ${shop}`);
       return res.status(404).json({ error: 'Shop not found' });
     }
 
     const accessToken = shopResult.rows[0].access_token;
+    console.log(`[BILLING CALLBACK] Access token retrieved for shop: ${shop}`);
     let chargeStatus = 'declined';
     let actualChargeId = charge_id;
     
+    console.log(`[BILLING CALLBACK] Initial charge_id from URL: ${charge_id}`);
+    
     // If charge_id is not provided, get the latest pending charge for this shop
     if (!charge_id) {
+      console.log(`[BILLING CALLBACK] No charge_id provided, searching for latest pending charge`);
       const latestCharge = await pool.query(
         'SELECT charge_id FROM charges WHERE shop = $1 AND type = $2 AND status = $3 ORDER BY created_at DESC LIMIT 1',
         [shop, type, 'pending']
       );
       if (latestCharge.rows.length > 0) {
         actualChargeId = latestCharge.rows[0].charge_id;
+        console.log(`[BILLING CALLBACK] Found latest pending charge: ${actualChargeId}`);
       } else {
-        return res.redirect(`${process.env.FRONTEND_URL}/pricing?billing=error`);
+        console.log(`[BILLING CALLBACK] ERROR: No pending charge found for shop: ${shop}, type: ${type}`);
+        const errorUrl = `${process.env.FRONTEND_URL}/pricing?billing=error`;
+        console.log(`[BILLING CALLBACK] Redirecting to error URL: ${errorUrl}`);
+        return res.redirect(errorUrl);
       }
+    } else {
+      console.log(`[BILLING CALLBACK] Using charge_id from URL: ${actualChargeId}`);
     }
 
+    console.log(`[BILLING CALLBACK] Processing ${type} charge with ID: ${actualChargeId}`);
+    
     if (type === 'recurring') {
       // Get recurring charge details
+      const apiUrl = `https://${shop}/admin/api/2023-10/recurring_application_charges/${actualChargeId}.json`;
+      console.log(`[BILLING CALLBACK] Fetching recurring charge details from: ${apiUrl}`);
+      
       const response = await axios.get(
-        `https://${shop}/admin/api/2023-10/recurring_application_charges/${actualChargeId}.json`,
+        apiUrl,
         {
           headers: {
             'X-Shopify-Access-Token': accessToken
@@ -567,13 +633,18 @@ app.get('/billing/callback', async (req, res) => {
       );
       
       const charge = response.data.recurring_application_charge;
+      console.log(`[BILLING CALLBACK] Recurring charge details:`, JSON.stringify(charge, null, 2));
       chargeStatus = charge.status;
       actualChargeId = charge.id.toString();
+      console.log(`[BILLING CALLBACK] Recurring charge status: ${chargeStatus}, ID: ${actualChargeId}`);
       
       // Activate recurring charge if accepted
       if (chargeStatus === 'accepted') {
+        const activateUrl = `https://${shop}/admin/api/2023-10/recurring_application_charges/${actualChargeId}/activate.json`;
+        console.log(`[BILLING CALLBACK] Activating recurring charge at: ${activateUrl}`);
+        
         await axios.post(
-          `https://${shop}/admin/api/2023-10/recurring_application_charges/${actualChargeId}/activate.json`,
+          activateUrl,
           {},
           {
             headers: {
@@ -582,11 +653,15 @@ app.get('/billing/callback', async (req, res) => {
           }
         );
         chargeStatus = 'active';
+        console.log(`[BILLING CALLBACK] Recurring charge activated successfully`);
       }
     } else if (type === 'lifetime') {
       // Get one-time charge details
+      const apiUrl = `https://${shop}/admin/api/2023-10/application_charges/${actualChargeId}.json`;
+      console.log(`[BILLING CALLBACK] Fetching lifetime charge details from: ${apiUrl}`);
+      
       const response = await axios.get(
-        `https://${shop}/admin/api/2023-10/application_charges/${actualChargeId}.json`,
+        apiUrl,
         {
           headers: {
             'X-Shopify-Access-Token': accessToken
@@ -595,26 +670,45 @@ app.get('/billing/callback', async (req, res) => {
       );
       
       const charge = response.data.application_charge;
+      console.log(`[BILLING CALLBACK] Lifetime charge details:`, JSON.stringify(charge, null, 2));
       chargeStatus = charge.status;
       actualChargeId = charge.id.toString();
+      console.log(`[BILLING CALLBACK] Lifetime charge status: ${chargeStatus}, ID: ${actualChargeId}`);
     }
 
     // Update charge status in database
+    console.log(`[BILLING CALLBACK] Updating database with status: ${chargeStatus} for charge: ${actualChargeId}`);
     await pool.query(
       'UPDATE charges SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE shop = $2 AND charge_id = $3',
       [chargeStatus, shop, actualChargeId]
     );
+    console.log(`[BILLING CALLBACK] Database updated successfully`);
 
     // Redirect based on status
+    let redirectUrl;
     if (chargeStatus === 'active' || chargeStatus === 'accepted') {
-      res.redirect(`${process.env.FRONTEND_URL}/?billing=success`);
+      redirectUrl = `${process.env.FRONTEND_URL}/?billing=success`;
+      console.log(`[BILLING CALLBACK] Charge successful, redirecting to: ${redirectUrl}`);
     } else {
-      res.redirect(`${process.env.FRONTEND_URL}/pricing?billing=declined`);
+      redirectUrl = `${process.env.FRONTEND_URL}/pricing?billing=declined`;
+      console.log(`[BILLING CALLBACK] Charge declined, redirecting to: ${redirectUrl}`);
     }
     
+    console.log(`[BILLING CALLBACK] Final redirect to: ${redirectUrl}`);
+    res.redirect(redirectUrl);
+    
   } catch (error) {
-    console.error('Error handling billing callback:', error);
-    res.redirect(`${process.env.FRONTEND_URL}/pricing?billing=error`);
+    console.error('[BILLING CALLBACK] ERROR handling billing callback:', error);
+    console.error('[BILLING CALLBACK] Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      headers: error.response?.headers,
+      stack: error.stack
+    });
+    const errorUrl = `${process.env.FRONTEND_URL}/pricing?billing=error`;
+    console.log(`[BILLING CALLBACK] Redirecting to error URL: ${errorUrl}`);
+    res.redirect(errorUrl);
   }
 });
 
@@ -650,6 +744,14 @@ app.get('/health', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`[STARTUP] Environment variables check:`);
+  console.log(`[STARTUP] NODE_ENV: ${process.env.NODE_ENV}`);
+  console.log(`[STARTUP] HOST: ${process.env.HOST}`);
+  console.log(`[STARTUP] BACKEND_URL: ${process.env.BACKEND_URL}`);
+  console.log(`[STARTUP] FRONTEND_URL: ${process.env.FRONTEND_URL}`);
+  console.log(`[STARTUP] SHOPIFY_API_KEY: ${process.env.SHOPIFY_API_KEY ? 'SET' : 'NOT SET'}`);
+  console.log(`[STARTUP] SHOPIFY_API_SECRET: ${process.env.SHOPIFY_API_SECRET ? 'SET' : 'NOT SET'}`);
+  console.log(`[STARTUP] DATABASE_URL: ${process.env.DATABASE_URL ? 'SET' : 'NOT SET'}`);
 });
 
 // Graceful shutdown
