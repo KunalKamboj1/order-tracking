@@ -541,11 +541,24 @@ app.get('/billing/callback', async (req, res) => {
     const accessToken = shopResult.rows[0].access_token;
     let chargeStatus = 'declined';
     let actualChargeId = charge_id;
+    
+    // If charge_id is not provided, get the latest pending charge for this shop
+    if (!charge_id) {
+      const latestCharge = await pool.query(
+        'SELECT charge_id FROM charges WHERE shop = $1 AND type = $2 AND status = $3 ORDER BY created_at DESC LIMIT 1',
+        [shop, type, 'pending']
+      );
+      if (latestCharge.rows.length > 0) {
+        actualChargeId = latestCharge.rows[0].charge_id;
+      } else {
+        return res.redirect(`${process.env.FRONTEND_URL}/pricing?billing=error`);
+      }
+    }
 
     if (type === 'recurring') {
       // Get recurring charge details
       const response = await axios.get(
-        `https://${shop}/admin/api/2023-10/recurring_application_charges/${charge_id}.json`,
+        `https://${shop}/admin/api/2023-10/recurring_application_charges/${actualChargeId}.json`,
         {
           headers: {
             'X-Shopify-Access-Token': accessToken
@@ -560,7 +573,7 @@ app.get('/billing/callback', async (req, res) => {
       // Activate recurring charge if accepted
       if (chargeStatus === 'accepted') {
         await axios.post(
-          `https://${shop}/admin/api/2023-10/recurring_application_charges/${charge_id}/activate.json`,
+          `https://${shop}/admin/api/2023-10/recurring_application_charges/${actualChargeId}/activate.json`,
           {},
           {
             headers: {
@@ -573,7 +586,7 @@ app.get('/billing/callback', async (req, res) => {
     } else if (type === 'lifetime') {
       // Get one-time charge details
       const response = await axios.get(
-        `https://${shop}/admin/api/2023-10/application_charges/${charge_id}.json`,
+        `https://${shop}/admin/api/2023-10/application_charges/${actualChargeId}.json`,
         {
           headers: {
             'X-Shopify-Access-Token': accessToken
