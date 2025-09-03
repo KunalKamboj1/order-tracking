@@ -22,6 +22,9 @@ export default function Home() {
   const [error, setError] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [appBridge, setAppBridge] = useState(null);
+  const [themeInstallLoading, setThemeInstallLoading] = useState(false);
+  const [themeInstallSuccess, setThemeInstallSuccess] = useState('');
+  const [themeInstallError, setThemeInstallError] = useState('');
   
   // Always call useAppBridge hook, but handle errors gracefully
   let app = null;
@@ -107,6 +110,50 @@ export default function Home() {
     }
   };
 
+  const handleInstallThemeBlock = async () => {
+    setThemeInstallLoading(true);
+    setThemeInstallError('');
+    setThemeInstallSuccess('');
+
+    try {
+      // Get shop domain from URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const shop = urlParams.get('shop') || window.location.hostname;
+      
+      const requestUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/install-theme-block?shop=${encodeURIComponent(shop)}`;
+      console.log('Installing theme block for shop:', shop);
+      
+      let response;
+      
+      if (isEmbedded && appBridge) {
+        const fetchResponse = await fetch(requestUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        const data = await fetchResponse.json();
+        response = {
+          data: data,
+          status: fetchResponse.status
+        };
+      } else {
+        response = await axios.post(requestUrl);
+      }
+      
+      if (response.status === 200) {
+        setThemeInstallSuccess('Tracking widget successfully installed in your theme! You can now customize it in the theme editor.');
+      } else {
+        throw new Error(response.data?.error || 'Installation failed');
+      }
+    } catch (err) {
+      console.error('Error installing theme block:', err);
+      setThemeInstallError(err.response?.data?.error || err.message || 'Failed to install theme block. Please try again.');
+    } finally {
+      setThemeInstallLoading(false);
+    }
+  };
+
   const renderTrackingResults = () => {
     if (!trackingData) return null;
 
@@ -157,27 +204,64 @@ export default function Home() {
       title="Order Tracking"
       subtitle="Look up tracking information for customer orders"
     >
-      <Card sectioned>
-        <FormLayout>
-          <TextField
-            label="Order ID"
-            value={orderId}
-            onChange={setOrderId}
-            onKeyPress={handleKeyPress}
-            placeholder="Enter order ID (e.g., 1234567890)"
-            autoComplete="off"
-          />
-          
-          <Button
-            primary
-            onClick={handleFetchTracking}
-            loading={loading}
-            disabled={!orderId.trim()}
-          >
-            {loading ? 'Fetching...' : 'Fetch Tracking'}
-          </Button>
-        </FormLayout>
-      </Card>
+      <BlockStack gap="500">
+        {/* Theme Installation Section */}
+        <Card sectioned>
+          <BlockStack gap="400">
+            <Text variant="headingMd" as="h2">Theme Installation</Text>
+            <TextContainer>
+              <p>Install the tracking widget block in your theme to allow customers to track their orders directly on your storefront.</p>
+            </TextContainer>
+            
+            <Button
+              onClick={handleInstallThemeBlock}
+              loading={themeInstallLoading}
+              disabled={themeInstallLoading}
+            >
+              {themeInstallLoading ? 'Installing...' : 'Install Tracking Widget in Theme'}
+            </Button>
+          </BlockStack>
+        </Card>
+
+        {/* Theme Installation Success/Error Messages */}
+        {themeInstallSuccess && (
+          <Banner status="success" onDismiss={() => setThemeInstallSuccess('')}>
+            <p>{themeInstallSuccess}</p>
+          </Banner>
+        )}
+
+        {themeInstallError && (
+          <Banner status="critical" onDismiss={() => setThemeInstallError('')}>
+            <p>{themeInstallError}</p>
+          </Banner>
+        )}
+
+        {/* Order Tracking Section */}
+        <Card sectioned>
+          <BlockStack gap="400">
+            <Text variant="headingMd" as="h2">Test Order Tracking</Text>
+            <FormLayout>
+              <TextField
+                label="Order ID"
+                value={orderId}
+                onChange={setOrderId}
+                onKeyPress={handleKeyPress}
+                placeholder="Enter order ID (e.g., 1234567890)"
+                autoComplete="off"
+              />
+              
+              <Button
+                primary
+                onClick={handleFetchTracking}
+                loading={loading}
+                disabled={!orderId.trim()}
+              >
+                {loading ? 'Fetching...' : 'Fetch Tracking'}
+              </Button>
+            </FormLayout>
+          </BlockStack>
+        </Card>
+      </BlockStack>
 
       {error && (
         <Banner status="critical" onDismiss={() => setError('')}>
@@ -194,7 +278,8 @@ export default function Home() {
         </Card>
       )}
 
-      {renderTrackingResults()}
+        {renderTrackingResults()}
+      </BlockStack>
     </Page>
   );
 }

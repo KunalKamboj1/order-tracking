@@ -3,7 +3,7 @@
 name = "order-tracking"
 client_id = "2d20e8e11bb0f54c316c6394ad8488d1"
 
-application_url = "https://amazing-app-name.netlify.app"
+application_url = "https://shopify-tracking-backend-new.netlify.app/"
 embedded = true
 
 [access_scopes]

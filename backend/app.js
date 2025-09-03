@@ -313,6 +313,145 @@ app.get('/tracking', async (req, res) => {
   }
 });
 
+// Theme block installation endpoint
+app.post('/install-theme-block', async (req, res) => {
+  const { shop } = req.query;
+  
+  if (!shop) {
+    return res.status(400).json({ error: 'Shop parameter is required' });
+  }
+
+  try {
+    console.log('Installing theme block for shop:', shop);
+    
+    // Get access token from database
+    const result = await pool.query('SELECT access_token FROM shops WHERE shop_domain = $1', [shop]);
+    
+    if (result.rows.length === 0) {
+      console.log('Shop not found in database:', shop);
+      return res.status(404).json({ error: 'Shop not found. Please install the app first.' });
+    }
+
+    const accessToken = result.rows[0].access_token;
+    console.log('Access token found for shop (first 10 chars):', accessToken.substring(0, 10) + '...');
+
+    // Get the published theme
+    const themesResponse = await axios.get(`https://${shop}/admin/api/2023-10/themes.json`, {
+      headers: {
+        'X-Shopify-Access-Token': accessToken,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const publishedTheme = themesResponse.data.themes.find(theme => theme.role === 'main');
+    if (!publishedTheme) {
+      return res.status(404).json({ error: 'No published theme found' });
+    }
+
+    console.log('Found published theme:', publishedTheme.name, 'ID:', publishedTheme.id);
+
+    // Get theme assets to find a suitable template
+    const assetsResponse = await axios.get(`https://${shop}/admin/api/2023-10/themes/${publishedTheme.id}/assets.json`, {
+      headers: {
+        'X-Shopify-Access-Token': accessToken,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    // Look for product template or index template
+    const templates = assetsResponse.data.assets.filter(asset => 
+      asset.key.includes('templates/') && 
+      (asset.key.includes('product') || asset.key.includes('index') || asset.key.includes('page'))
+    );
+
+    if (templates.length === 0) {
+      return res.status(404).json({ error: 'No suitable template found to install the widget' });
+    }
+
+    // Use the first suitable template
+    const targetTemplate = templates[0];
+    console.log('Target template:', targetTemplate.key);
+
+    // Get the template content
+    const templateResponse = await axios.get(`https://${shop}/admin/api/2023-10/themes/${publishedTheme.id}/assets.json?asset[key]=${targetTemplate.key}`, {
+      headers: {
+        'X-Shopify-Access-Token': accessToken,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    let templateContent = templateResponse.data.asset.value;
+    
+    // Check if the tracking widget is already installed
+    if (templateContent.includes('tracking-widget') || templateContent.includes('Order Tracking Widget')) {
+      return res.json({ 
+        success: true, 
+        message: 'Tracking widget is already installed in your theme',
+        template: targetTemplate.key
+      });
+    }
+
+    // Add the tracking widget block to the template
+     const widgetBlock = `
+
+{%- comment -%} Order Tracking Widget Block {%- endcomment -%}
+<div class="tracking-widget-container" style="margin: 20px 0; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+  <h3 style="margin: 0 0 15px 0; padding: 15px 15px 0 15px; font-size: 1.5em; font-weight: bold; color: #333;">Track Your Order</h3>
+  <iframe 
+    src="${process.env.FRONTEND_URL || 'https://amazing-app-name.netlify.app'}/widget?shop={{ shop.permanent_domain }}"
+    style="width: 100%; height: 400px; border: none; display: block;"
+    title="Order Tracking Widget"
+    loading="lazy"
+    sandbox="allow-scripts allow-same-origin allow-forms"
+  ></iframe>
+</div>
+`;
+
+    // Insert the widget before the closing </main> or </body> tag, or at the end
+    if (templateContent.includes('</main>')) {
+      templateContent = templateContent.replace('</main>', widgetBlock + '</main>');
+    } else if (templateContent.includes('</body>')) {
+      templateContent = templateContent.replace('</body>', widgetBlock + '</body>');
+    } else {
+      templateContent += widgetBlock;
+    }
+
+    // Update the template
+    await axios.put(`https://${shop}/admin/api/2023-10/themes/${publishedTheme.id}/assets.json`, {
+      asset: {
+        key: targetTemplate.key,
+        value: templateContent
+      }
+    }, {
+      headers: {
+        'X-Shopify-Access-Token': accessToken,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log('Successfully installed tracking widget in template:', targetTemplate.key);
+    
+    res.json({ 
+      success: true, 
+      message: 'Tracking widget successfully installed in your theme!',
+      template: targetTemplate.key,
+      theme: publishedTheme.name
+    });
+
+  } catch (error) {
+    console.error('Error installing theme block:', error.message);
+    console.error('Error response:', error.response?.data);
+    
+    if (error.response?.status === 401) {
+      return res.status(401).json({ error: 'Invalid access token. Please reinstall the app.' });
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to install theme block. Please try again or install manually through the theme editor.' 
+    });
+  }
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ 
