@@ -20,6 +20,7 @@ export default function Home() {
   const [trackingData, setTrackingData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [appBridge, setAppBridge] = useState(null);
   
@@ -36,6 +37,22 @@ export default function Home() {
   useEffect(() => {
     setIsClient(true);
     setAppBridge(app);
+    
+    // Check for billing status parameters in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const billingStatus = urlParams.get('billing');
+    
+    if (billingStatus === 'success') {
+      setError('');
+      setSuccess('Billing successful! Your subscription is now active.');
+      console.log('Billing successful!');
+    } else if (billingStatus === 'declined') {
+      setSuccess('');
+      setError('Billing was declined. Please try again or contact support.');
+    } else if (billingStatus === 'error') {
+      setSuccess('');
+      setError('An error occurred during billing. Please try again.');
+    }
     
     // Check billing status after component mounts
     checkBillingStatus();
@@ -73,6 +90,7 @@ export default function Home() {
 
     setLoading(true);
     setError('');
+    setSuccess('');
     setTrackingData(null);
 
     try {
@@ -237,6 +255,12 @@ export default function Home() {
           </BlockStack>
         </Card>
       </BlockStack>
+
+      {success && (
+        <Banner status="success" onDismiss={() => setSuccess('')}>
+          <p>{success}</p>
+        </Banner>
+      )}
 
       {error && (
         <Banner status="critical" onDismiss={() => setError('')}>

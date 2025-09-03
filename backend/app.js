@@ -648,8 +648,8 @@ app.get('/billing/callback', async (req, res) => {
         console.log(`[BILLING CALLBACK] Found latest pending charge: ${actualChargeId}`);
       } else {
         console.log(`[BILLING CALLBACK] ERROR: No pending charge found for shop: ${shop}, type: ${type}`);
-        const frontendUrl = process.env.FRONTEND_URL.endsWith('/') ? process.env.FRONTEND_URL.slice(0, -1) : process.env.FRONTEND_URL;
-        const errorUrl = `${frontendUrl}/pricing?billing=error`;
+        // Redirect to the app in Shopify admin with error parameter
+        const errorUrl = `https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=error`;
         console.log(`[BILLING CALLBACK] Redirecting to error URL: ${errorUrl}`);
         return res.redirect(errorUrl);
       }
@@ -725,14 +725,15 @@ app.get('/billing/callback', async (req, res) => {
     );
     console.log(`[BILLING CALLBACK] Database updated successfully`);
 
-    // Redirect based on status
-    const frontendUrl = process.env.FRONTEND_URL.endsWith('/') ? process.env.FRONTEND_URL.slice(0, -1) : process.env.FRONTEND_URL;
+    // Redirect based on status - keep users in Shopify admin
     let redirectUrl;
     if (chargeStatus === 'active' || chargeStatus === 'accepted') {
-      redirectUrl = `${frontendUrl}/?billing=success`;
+      // Redirect to the app in Shopify admin with success parameter
+      redirectUrl = `https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=success`;
       console.log(`[BILLING CALLBACK] Charge successful, redirecting to: ${redirectUrl}`);
     } else {
-      redirectUrl = `${frontendUrl}/pricing?billing=declined`;
+      // Redirect to the app in Shopify admin with declined parameter
+      redirectUrl = `https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=declined`;
       console.log(`[BILLING CALLBACK] Charge declined, redirecting to: ${redirectUrl}`);
     }
     
