@@ -140,14 +140,57 @@ app.get('/tracking', async (req, res) => {
     const accessToken = result.rows[0].access_token;
     console.log('Access token found:', accessToken ? 'Yes' : 'No');
 
+    let numericOrderId = order_id;
+    
+    // If order_id starts with "#", resolve it to numeric ID
+    if (order_id.startsWith('#')) {
+      console.log('Resolving order name to numeric ID:', order_id);
+      
+      const orderSearchUrl = `https://${shopDomain}/admin/api/2023-10/orders.json?name=${encodeURIComponent(order_id)}`;
+      console.log('Making order search request to:', orderSearchUrl);
+      
+      try {
+        const orderSearchResponse = await axios.get(orderSearchUrl, {
+          headers: {
+            'X-Shopify-Access-Token': accessToken
+          }
+        });
+        
+        const orders = orderSearchResponse.data.orders;
+        console.log('Order search returned', orders.length, 'orders');
+        
+        if (orders.length === 0) {
+          console.log('No order found with name:', order_id);
+          return res.json({
+            tracking_number: null,
+            tracking_company: null,
+            tracking_url: null,
+            message: 'Order not found'
+          });
+        }
+        
+        numericOrderId = orders[0].id;
+        console.log('Resolved order name', order_id, 'to numeric ID:', numericOrderId);
+        
+      } catch (searchError) {
+        console.error('Error searching for order by name:', searchError.message);
+        return res.json({
+          tracking_number: null,
+          tracking_company: null,
+          tracking_url: null,
+          message: 'Error searching for order'
+        });
+      }
+    }
+    
+    console.log('Using numeric order ID:', numericOrderId);
+
     // Call Shopify Admin API to get fulfillments
-    const apiUrl = `https://${shopDomain}/admin/api/2023-10/orders/${order_id}/fulfillments.json`;
+    const apiUrl = `https://${shopDomain}/admin/api/2023-10/orders/${numericOrderId}/fulfillments.json`;
     console.log('Making Shopify API request to:', apiUrl);
     console.log('Request headers:', {
       'X-Shopify-Access-Token': accessToken ? `${accessToken.substring(0, 10)}...` : 'None'
     });
-    console.log('Order ID being used:', order_id);
-    console.log('Shop domain:', shopDomain);
     
     const fulfillmentsResponse = await axios.get(apiUrl, {
       headers: {
@@ -159,7 +202,7 @@ app.get('/tracking', async (req, res) => {
     console.log('Shopify API response data:', JSON.stringify(fulfillmentsResponse.data, null, 2));
 
     const fulfillments = fulfillmentsResponse.data.fulfillments;
-    console.log('Number of fulfillments found:', fulfillments ? fulfillments.length : 0);
+    console.log('Fulfillment count returned:', fulfillments ? fulfillments.length : 0);
     
     if (!fulfillments || fulfillments.length === 0) {
       console.log('No fulfillments found, returning null values');
