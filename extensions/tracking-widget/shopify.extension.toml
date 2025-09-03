@@ -1,0 +1,7 @@
+# Learn more about configuring your theme app extension:
+# https://shopify.dev/docs/apps/online-store/theme-app-extensions/configuration
+
+api_version = "2023-10"
+type = "theme"
+name = "tracking-widget"
+handle = "tracking-widget"
