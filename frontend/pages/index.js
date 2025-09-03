@@ -278,8 +278,7 @@ export default function Home() {
         </Card>
       )}
 
-        {renderTrackingResults()}
-      </BlockStack>
+      {renderTrackingResults()}
     </Page>
   );
 }
