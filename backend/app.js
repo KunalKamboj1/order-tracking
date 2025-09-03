@@ -313,7 +313,7 @@ app.get('/tracking', async (req, res) => {
   }
 });
 
-// Theme block installation endpoint - Updated for Theme App Extensions
+// Theme block installation endpoint - Returns instructions directly
 app.post('/install-theme-block', async (req, res) => {
   const { shop } = req.query;
   
@@ -321,45 +321,25 @@ app.post('/install-theme-block', async (req, res) => {
     return res.status(400).json({ error: 'Shop parameter is required' });
   }
 
-  try {
-    console.log('Providing theme block installation instructions for shop:', shop);
-    
-    // Get access token from database to verify shop is authenticated
-    const result = await pool.query('SELECT access_token FROM shops WHERE shop_domain = $1', [shop]);
-    
-    if (result.rows.length === 0) {
-      console.log('Shop not found in database:', shop);
-      return res.status(404).json({ error: 'Shop not found. Please install the app first.' });
-    }
-
-    console.log('Shop authenticated, providing installation instructions');
-    
-    // Since we're using Theme App Extensions, we don't need to modify theme files directly
-    // The extension blocks are already deployed and available in the theme editor
-    res.json({ 
-      success: true, 
-      message: 'The Order Tracking Widget is ready to use! Please follow these steps to add it to your theme:',
-      instructions: [
-        '1. Go to your Shopify Admin → Online Store → Themes',
-        '2. Click "Customize" on your active theme',
-        '3. Navigate to the page where you want to add the tracking widget',
-        '4. Click "Add section" or "Add block" (depending on your theme)',
-        '5. Look for "Order Tracking Widget" in the Apps section',
-        '6. Add the widget and customize its settings as needed',
-        '7. Click "Save" to publish your changes'
-      ],
-      manual_steps: true,
-      widget_name: 'Order Tracking Widget',
-      extension_handle: 'tracking-widget'
-    });
-
-  } catch (error) {
-    console.error('Error providing installation instructions:', error.message);
-    
-    res.status(500).json({ 
-      error: 'Unable to provide installation instructions. Please install the widget manually through the theme editor.' 
-    });
-  }
+  console.log('Providing theme block installation instructions for shop:', shop);
+  
+  // Return installation instructions directly without database dependency
+  res.json({ 
+    success: true, 
+    message: 'The Order Tracking Widget is ready to use! Please follow these steps to add it to your theme:',
+    instructions: [
+      '1. Go to your Shopify Admin → Online Store → Themes',
+      '2. Click "Customize" on your active theme',
+      '3. Navigate to the page where you want to add the tracking widget',
+      '4. Click "Add section" or "Add block" (depending on your theme)',
+      '5. Look for "Order Tracking Widget" in the Apps section',
+      '6. Add the widget and customize its settings as needed',
+      '7. Click "Save" to publish your changes'
+    ],
+    manual_steps: true,
+    widget_name: 'Order Tracking Widget',
+    extension_handle: 'tracking-widget'
+  });
 });
 
 // Health check endpoint

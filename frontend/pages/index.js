@@ -22,9 +22,6 @@ export default function Home() {
   const [error, setError] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [appBridge, setAppBridge] = useState(null);
-  const [themeInstallLoading, setThemeInstallLoading] = useState(false);
-  const [themeInstallSuccess, setThemeInstallSuccess] = useState('');
-  const [themeInstallError, setThemeInstallError] = useState('');
   
   // Always call useAppBridge hook, but handle errors gracefully
   let app = null;
@@ -110,57 +107,7 @@ export default function Home() {
     }
   };
 
-  const handleInstallThemeBlock = async () => {
-    setThemeInstallLoading(true);
-    setThemeInstallError('');
-    setThemeInstallSuccess('');
 
-    try {
-      // Get shop domain from URL parameters
-      const urlParams = new URLSearchParams(window.location.search);
-      const shop = urlParams.get('shop') || window.location.hostname;
-      
-      const requestUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/install-theme-block?shop=${encodeURIComponent(shop)}`;
-      console.log('Getting installation instructions for shop:', shop);
-      
-      let response;
-      
-      if (isEmbedded && appBridge) {
-        const fetchResponse = await fetch(requestUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        const data = await fetchResponse.json();
-        response = {
-          data: data,
-          status: fetchResponse.status
-        };
-      } else {
-        response = await axios.post(requestUrl);
-      }
-      
-      if (response.status === 200 && response.data.success) {
-        const { message, instructions, manual_steps } = response.data;
-        
-        if (manual_steps && instructions) {
-          // Format instructions as a readable message
-          const instructionText = instructions.join('\n');
-          setThemeInstallSuccess(`${message}\n\n${instructionText}`);
-        } else {
-          setThemeInstallSuccess(message || 'Theme widget is ready to use!');
-        }
-      } else {
-        throw new Error(response.data?.error || 'Failed to get installation instructions');
-      }
-    } catch (err) {
-      console.error('Error getting installation instructions:', err);
-      setThemeInstallError(err.response?.data?.error || err.message || 'Failed to get installation instructions. Please install manually through the theme editor.');
-    } finally {
-      setThemeInstallLoading(false);
-    }
-  };
 
   const renderTrackingResults = () => {
     if (!trackingData) return null;
@@ -216,35 +163,30 @@ export default function Home() {
         {/* Theme Installation Section */}
         <Card sectioned>
           <BlockStack gap="400">
-            <Text variant="headingMd" as="h2">Theme Installation</Text>
+            <Text variant="headingMd" as="h2">Theme Installation Instructions</Text>
             <TextContainer>
-              <p>The Order Tracking Widget is deployed as a theme app extension. Click below to get step-by-step instructions for adding it to your theme.</p>
+              <p>Follow these steps to add the Order Tracking Widget to your theme:</p>
             </TextContainer>
-            
-            <Button
-              onClick={handleInstallThemeBlock}
-              loading={themeInstallLoading}
-              disabled={themeInstallLoading}
-            >
-              {themeInstallLoading ? 'Getting Instructions...' : 'Get Installation Instructions'}
-            </Button>
+            <div style={{ backgroundColor: '#f6f6f7', padding: '16px', borderRadius: '8px', marginTop: '12px' }}>
+              <ol style={{ margin: 0, paddingLeft: '20px' }}>
+                <li>Go to your Shopify Admin → Online Store → Themes</li>
+                <li>Click "Customize" on your active theme</li>
+                <li>Navigate to the page where you want to add the tracking widget</li>
+                <li>Click "Add section" or "Add block" (depending on your theme)</li>
+                <li>Look for "Order Tracking Widget" in the Apps section</li>
+                <li>Add the widget and customize its settings as needed</li>
+                <li>Click "Save" to publish your changes</li>
+              </ol>
+            </div>
+            <TextContainer>
+              <p style={{ marginTop: '12px', fontSize: '14px', color: '#637381' }}>
+                <strong>Note:</strong> The Order Tracking Widget will appear in the Apps section of your theme editor after the app is installed.
+              </p>
+            </TextContainer>
           </BlockStack>
         </Card>
 
-        {/* Theme Installation Success/Error Messages */}
-        {themeInstallSuccess && (
-          <Banner status="success" onDismiss={() => setThemeInstallSuccess('')}>
-            <div style={{ whiteSpace: 'pre-line' }}>
-              {themeInstallSuccess}
-            </div>
-          </Banner>
-        )}
 
-        {themeInstallError && (
-          <Banner status="critical" onDismiss={() => setThemeInstallError('')}>
-            <p>{themeInstallError}</p>
-          </Banner>
-        )}
 
         {/* Order Tracking Section */}
         <Card sectioned>
