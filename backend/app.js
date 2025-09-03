@@ -143,6 +143,11 @@ app.get('/tracking', async (req, res) => {
     // Call Shopify Admin API to get fulfillments
     const apiUrl = `https://${shopDomain}/admin/api/2023-10/orders/${order_id}/fulfillments.json`;
     console.log('Making Shopify API request to:', apiUrl);
+    console.log('Request headers:', {
+      'X-Shopify-Access-Token': accessToken ? `${accessToken.substring(0, 10)}...` : 'None'
+    });
+    console.log('Order ID being used:', order_id);
+    console.log('Shop domain:', shopDomain);
     
     const fulfillmentsResponse = await axios.get(apiUrl, {
       headers: {
