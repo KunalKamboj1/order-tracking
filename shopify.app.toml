@@ -12,7 +12,7 @@ scopes = "read_orders,read_fulfillments"
 
 [auth]
 redirect_urls = [
-  "https://shopify-tracking-backend.onrender.com/callback"
+  "https://shopify-tracking-backend-new.onrender.com/callback"
 ]
 
 [webhooks]
