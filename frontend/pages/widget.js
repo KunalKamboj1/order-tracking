@@ -156,10 +156,3 @@ export default function Widget() {
     </div>
   );
 }
-
-// Add Tailwind CSS via CDN for this widget
-export async function getServerSideProps() {
-  return {
-    props: {},
-  };
-}
