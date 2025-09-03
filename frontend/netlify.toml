@@ -1,0 +1,15 @@
+[build]
+  publish = "out"
+  command = "npm run build && npm run export"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[context.production.environment]
+  NEXT_PUBLIC_BACKEND_URL = "https://shopify-tracking-backend.onrender.com"
+  NEXT_PUBLIC_SHOPIFY_API_KEY = "2d20e8e11bb0f54c316c6394ad8488d1"

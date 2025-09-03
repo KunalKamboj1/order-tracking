@@ -41,6 +41,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Shopify Order Tracking Backend API',
+    status: 'running',
+    endpoints: {
+      auth: '/auth?shop=yourstore.myshopify.com',
+      callback: '/callback',
+      tracking: '/tracking?order_id=ORDER_ID&shop=SHOP_DOMAIN',
+      health: '/health'
+    }
+  });
+});
+
 // OAuth start endpoint
 app.get('/auth', (req, res) => {
   const { shop } = req.query;

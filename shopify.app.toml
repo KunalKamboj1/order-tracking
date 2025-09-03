@@ -1,0 +1,30 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+name = "order-tracking"
+client_id = "2d20e8e11bb0f54c316c6394ad8488d1"
+
+application_url = "https://amazing-app-name.netlify.app"
+embedded = true
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_orders,read_fulfillments"
+
+[auth]
+redirect_urls = [
+  "https://shopify-tracking-backend.onrender.com/callback"
+]
+
+[webhooks]
+api_version = "2023-10"
+
+[pos]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#pos
+embedded = false
+
+# Extensions are automatically detected from the extensions/ directory
+
+[build]
+automatically_update_urls_on_dev = true
+dev_store_url = "your-dev-store.myshopify.com"
+include_config_on_deploy = true

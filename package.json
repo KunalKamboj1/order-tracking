@@ -1,0 +1,22 @@
+{
+  "name": "order-tracking-app",
+  "version": "1.0.0",
+  "description": "Shopify Order Tracking App with Theme Extension",
+  "main": "index.js",
+  "scripts": {
+    "dev": "shopify app dev",
+    "build": "shopify app build",
+    "deploy": "shopify app deploy"
+  },
+  "keywords": [
+    "shopify",
+    "app",
+    "order-tracking",
+    "theme-extension"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "@shopify/cli": "^3.0.0"
+  }
+}
