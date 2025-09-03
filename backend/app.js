@@ -152,6 +152,20 @@ app.get('/tracking', async (req, res) => {
     console.log('Access token found:', accessToken ? 'Yes' : 'No');
     console.log('Access token (first 10 chars):', accessToken ? `${accessToken.substring(0, 10)}...` : 'None');
 
+    // Test access token with a simple API call first
+    try {
+      console.log('Testing access token with shop info API...');
+      const shopInfoResponse = await axios.get(`https://${shopDomain}/admin/api/2023-10/shop.json`, {
+        headers: {
+          'X-Shopify-Access-Token': accessToken
+        }
+      });
+      console.log('Access token test successful - shop name:', shopInfoResponse.data.shop?.name || 'Unknown');
+    } catch (tokenTestError) {
+      console.error('Access token test failed:', tokenTestError.response?.status, tokenTestError.response?.data || tokenTestError.message);
+      return res.status(401).json({ error: 'Invalid or expired access token' });
+    }
+
     let numericOrderId = order_id;
     
     // If order_id starts with "#", resolve it to numeric ID
