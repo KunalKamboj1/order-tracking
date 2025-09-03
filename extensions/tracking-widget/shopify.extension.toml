@@ -1,7 +1,13 @@
 # Learn more about configuring your theme app extension:
-# https://shopify.dev/docs/apps/online-store/theme-app-extensions/configuration
+# https://shopify.dev/docs/apps/online-store/theme-app-extensions/getting-started
 
-api_version = "2023-10"
+api_version = "2024-07"
+
+[[extensions]]
 type = "theme"
-name = "tracking-widget"
+name = "Order Tracking Widget"
 handle = "tracking-widget"
+
+[[extensions.blocks]]
+type = "tracking-widget"
+name = "Order Tracking Widget"
