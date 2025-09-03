@@ -42,6 +42,11 @@ export default function Home() {
       console.log('Making request to:', requestUrl);
       
       const response = await axios.get(requestUrl);
+      
+      console.log('Full response:', response);
+      console.log('Response status:', response.status);
+      console.log('Response data:', JSON.stringify(response.data, null, 2));
+      console.log('Response headers:', response.headers);
 
       setTrackingData(response.data);
     } catch (err) {

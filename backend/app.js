@@ -113,59 +113,85 @@ app.get('/callback', async (req, res) => {
 // Tracking endpoint
 app.get('/tracking', async (req, res) => {
   const { shop, order_id } = req.query;
+  
+  console.log('=== TRACKING REQUEST ===');
+  console.log('Shop:', shop);
+  console.log('Order ID:', order_id);
+  console.log('Full query params:', req.query);
 
   if (!shop || !order_id) {
+    console.log('Missing required parameters');
     return res.status(400).json({ error: 'Shop and order_id parameters are required' });
   }
 
   try {
     const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
+    console.log('Shop domain:', shopDomain);
     
     // Get access token from database
     const result = await pool.query('SELECT access_token FROM shops WHERE shop = $1 LIMIT 1', [shopDomain]);
+    console.log('Database query result:', result.rows.length > 0 ? 'Found shop' : 'Shop not found');
 
     if (result.rows.length === 0) {
+      console.log('Shop not authenticated');
       return res.status(404).json({ error: 'Shop not found or not authenticated' });
     }
 
     const accessToken = result.rows[0].access_token;
+    console.log('Access token found:', accessToken ? 'Yes' : 'No');
 
     // Call Shopify Admin API to get fulfillments
-    const fulfillmentsResponse = await axios.get(
-      `https://${shopDomain}/admin/api/2023-10/orders/${order_id}/fulfillments.json`,
-      {
-        headers: {
-          'X-Shopify-Access-Token': accessToken
-        }
+    const apiUrl = `https://${shopDomain}/admin/api/2023-10/orders/${order_id}/fulfillments.json`;
+    console.log('Making Shopify API request to:', apiUrl);
+    
+    const fulfillmentsResponse = await axios.get(apiUrl, {
+      headers: {
+        'X-Shopify-Access-Token': accessToken
       }
-    );
+    });
+    
+    console.log('Shopify API response status:', fulfillmentsResponse.status);
+    console.log('Shopify API response data:', JSON.stringify(fulfillmentsResponse.data, null, 2));
 
     const fulfillments = fulfillmentsResponse.data.fulfillments;
+    console.log('Number of fulfillments found:', fulfillments ? fulfillments.length : 0);
     
     if (!fulfillments || fulfillments.length === 0) {
+      console.log('No fulfillments found, returning null values');
       return res.json({
         tracking_number: null,
         tracking_company: null,
-        tracking_url: null
+        tracking_url: null,
+        message: 'No tracking info found for this order'
       });
     }
 
     // Get the first fulfillment with tracking info
     const fulfillment = fulfillments.find(f => f.tracking_number) || fulfillments[0];
+    console.log('Selected fulfillment:', JSON.stringify(fulfillment, null, 2));
     
-    res.json({
+    const responseData = {
       tracking_number: fulfillment.tracking_number || null,
       tracking_company: fulfillment.tracking_company || null,
       tracking_url: fulfillment.tracking_url || null
-    });
+    };
+    
+    console.log('Sending response:', JSON.stringify(responseData, null, 2));
+    res.json(responseData);
 
   } catch (error) {
-    console.error('Tracking endpoint error:', error.response?.data || error.message);
+    console.log('=== ERROR IN TRACKING ENDPOINT ===');
+    console.error('Error message:', error.message);
+    console.error('Error response status:', error.response?.status);
+    console.error('Error response data:', JSON.stringify(error.response?.data, null, 2));
+    console.error('Full error:', error);
     
     if (error.response?.status === 404) {
+      console.log('Order not found (404 error)');
       return res.status(404).json({ error: 'Order not found' });
     }
     
+    console.log('Returning 500 error');
     res.status(500).json({ error: 'Failed to fetch tracking information' });
   }
 });
