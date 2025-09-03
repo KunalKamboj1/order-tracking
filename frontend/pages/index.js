@@ -7,8 +7,9 @@ import {
   Button,
   Banner,
   TextContainer,
-  DisplayText,
-  Stack,
+  Text,
+  BlockStack,
+  InlineStack,
   Spinner,
 } from '@shopify/polaris';
 import axios from 'axios';
@@ -72,8 +73,8 @@ export default function Home() {
 
     return (
       <Card sectioned>
-        <Stack vertical>
-          <DisplayText size="small">Tracking Information</DisplayText>
+        <BlockStack gap="400">
+          <Text variant="headingMd" as="h2">Tracking Information</Text>
           
           {tracking_company && (
             <TextContainer>
@@ -97,7 +98,7 @@ export default function Home() {
               </p>
             </TextContainer>
           )}
-        </Stack>
+        </BlockStack>
       </Card>
     );
   };

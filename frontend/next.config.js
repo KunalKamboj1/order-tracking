@@ -2,13 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  output: 'export',
   trailingSlash: true,
-  exportPathMap: async function () {
-    return {
-      '/': { page: '/' },
-      '/widget': { page: '/widget' }
-    };
-  },
+  distDir: 'out',
   env: {
     NEXT_PUBLIC_SHOPIFY_API_KEY: process.env.NEXT_PUBLIC_SHOPIFY_API_KEY,
     NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
