@@ -14,7 +14,6 @@ import {
 } from '@shopify/polaris';
 import axios from 'axios';
 import { useAppBridge } from '@shopify/app-bridge-react';
-import { authenticatedFetch } from '@shopify/app-bridge-utils';
 
 export default function Home() {
   const [orderId, setOrderId] = useState('');
@@ -51,10 +50,14 @@ export default function Home() {
       let response;
       
       if (isEmbedded && app) {
-        // Use App Bridge authenticated fetch when embedded in Shopify Admin
-        console.log('Using App Bridge authenticated fetch');
-        const fetch = authenticatedFetch(app);
-        const fetchResponse = await fetch(requestUrl);
+        // When embedded in Shopify Admin, use fetch with proper headers
+        console.log('Using fetch for embedded app');
+        const fetchResponse = await fetch(requestUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
         const data = await fetchResponse.json();
         response = {
           data: data,
@@ -63,7 +66,7 @@ export default function Home() {
         };
       } else {
         // Use regular axios when running standalone
-        console.log('Using regular axios fetch');
+        console.log('Using axios for standalone app');
         response = await axios.get(requestUrl);
       }
       
