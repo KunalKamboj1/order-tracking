@@ -1,0 +1,27 @@
+{
+  "name": "shopify-tracking-backend",
+  "version": "1.0.0",
+  "description": "Backend server for Shopify order tracking app",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0",
+    "pg": "^8.11.3",
+    "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": [
+    "shopify",
+    "tracking",
+    "express",
+    "oauth"
+  ],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,0 +1,88 @@
+{% comment %}
+  Order Tracking Widget - Shopify Theme App Extension
+  This block embeds the tracking widget iframe into the storefront
+{% endcomment %}
+
+<div class="tracking-widget-container" 
+     style="margin: 20px 0; {% if block.settings.show_border %}border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;{% endif %}">
+  
+  {% if block.settings.heading != blank %}
+    <h3 style="margin: 0 0 15px 0; padding: {% if block.settings.show_border %}15px 15px 0 15px{% else %}0{% endif %}; font-size: 1.5em; font-weight: bold; color: #333;">
+      {{ block.settings.heading }}
+    </h3>
+  {% endif %}
+  
+  <iframe 
+    src="{{ block.settings.widget_url }}/widget?shop={{ shop.permanent_domain }}"
+    style="width: 100%; height: {{ block.settings.widget_height }}px; border: none; display: block;"
+    title="Order Tracking Widget"
+    loading="lazy"
+    sandbox="allow-scripts allow-same-origin allow-forms"
+  ></iframe>
+  
+</div>
+
+<style>
+  .tracking-widget-container {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .tracking-widget-container iframe {
+    background-color: #f9f9f9;
+  }
+  
+  @media (max-width: 768px) {
+    .tracking-widget-container {
+      margin: 15px 0;
+    }
+    
+    .tracking-widget-container h3 {
+      font-size: 1.3em;
+      padding: {% if block.settings.show_border %}10px 10px 0 10px{% else %}0{% endif %};
+    }
+  }
+</style>
+
+{% schema %}
+{
+  "name": "Order Tracking Widget",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Widget Heading",
+      "default": "Track Your Order"
+    },
+    {
+      "type": "text",
+      "id": "widget_url",
+      "label": "Widget URL",
+      "default": "https://my-netlify-app.netlify.app",
+      "info": "URL where your tracking widget is hosted (without trailing slash)"
+    },
+    {
+      "type": "range",
+      "id": "widget_height",
+      "label": "Widget Height (px)",
+      "min": 300,
+      "max": 600,
+      "step": 50,
+      "default": 400
+    },
+    {
+      "type": "checkbox",
+      "id": "show_border",
+      "label": "Show border around widget",
+      "default": false
+    }
+  ],
+  "presets": [
+    {
+      "name": "Order Tracking Widget",
+      "category": "Custom"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,28 @@
+{
+  "name": "shopify-tracking-frontend",
+  "version": "1.0.0",
+  "description": "Admin frontend for Shopify order tracking app",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@shopify/app-bridge": "^3.7.9",
+    "@shopify/app-bridge-react": "^3.7.9",
+    "@shopify/polaris": "^12.0.0",
+    "axios": "^1.6.0",
+    "next": "14.0.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.54.0",
+    "eslint-config-next": "14.0.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
