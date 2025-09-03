@@ -593,7 +593,7 @@ app.get('/billing/lifetime', async (req, res) => {
           <p>Redirecting to Shopify billing confirmation...</p>
         </body>
       </html>
-    `);}]}}
+    `);
     
   } catch (error) {
     console.error('[BILLING] ERROR creating lifetime charge:', error);
