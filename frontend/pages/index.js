@@ -121,7 +121,7 @@ export default function Home() {
       const shop = urlParams.get('shop') || window.location.hostname;
       
       const requestUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/install-theme-block?shop=${encodeURIComponent(shop)}`;
-      console.log('Installing theme block for shop:', shop);
+      console.log('Getting installation instructions for shop:', shop);
       
       let response;
       
@@ -141,14 +141,22 @@ export default function Home() {
         response = await axios.post(requestUrl);
       }
       
-      if (response.status === 200) {
-        setThemeInstallSuccess('Tracking widget successfully installed in your theme! You can now customize it in the theme editor.');
+      if (response.status === 200 && response.data.success) {
+        const { message, instructions, manual_steps } = response.data;
+        
+        if (manual_steps && instructions) {
+          // Format instructions as a readable message
+          const instructionText = instructions.join('\n');
+          setThemeInstallSuccess(`${message}\n\n${instructionText}`);
+        } else {
+          setThemeInstallSuccess(message || 'Theme widget is ready to use!');
+        }
       } else {
-        throw new Error(response.data?.error || 'Installation failed');
+        throw new Error(response.data?.error || 'Failed to get installation instructions');
       }
     } catch (err) {
-      console.error('Error installing theme block:', err);
-      setThemeInstallError(err.response?.data?.error || err.message || 'Failed to install theme block. Please try again.');
+      console.error('Error getting installation instructions:', err);
+      setThemeInstallError(err.response?.data?.error || err.message || 'Failed to get installation instructions. Please install manually through the theme editor.');
     } finally {
       setThemeInstallLoading(false);
     }
@@ -210,7 +218,7 @@ export default function Home() {
           <BlockStack gap="400">
             <Text variant="headingMd" as="h2">Theme Installation</Text>
             <TextContainer>
-              <p>Install the tracking widget block in your theme to allow customers to track their orders directly on your storefront.</p>
+              <p>The Order Tracking Widget is deployed as a theme app extension. Click below to get step-by-step instructions for adding it to your theme.</p>
             </TextContainer>
             
             <Button
@@ -218,7 +226,7 @@ export default function Home() {
               loading={themeInstallLoading}
               disabled={themeInstallLoading}
             >
-              {themeInstallLoading ? 'Installing...' : 'Install Tracking Widget in Theme'}
+              {themeInstallLoading ? 'Getting Instructions...' : 'Get Installation Instructions'}
             </Button>
           </BlockStack>
         </Card>
@@ -226,7 +234,9 @@ export default function Home() {
         {/* Theme Installation Success/Error Messages */}
         {themeInstallSuccess && (
           <Banner status="success" onDismiss={() => setThemeInstallSuccess('')}>
-            <p>{themeInstallSuccess}</p>
+            <div style={{ whiteSpace: 'pre-line' }}>
+              {themeInstallSuccess}
+            </div>
           </Banner>
         )}
 
