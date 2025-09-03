@@ -475,9 +475,28 @@ app.get('/billing/subscribe', async (req, res) => {
     );
     console.log(`[BILLING] Charge stored successfully`);
 
-    // Redirect to Shopify's confirmation URL
+    // Redirect to Shopify's confirmation URL (break out of iframe)
     console.log(`[BILLING] Redirecting to confirmation URL: ${charge.confirmation_url}`);
-    res.redirect(charge.confirmation_url);
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Redirecting to Shopify...</title>
+        </head>
+        <body>
+          <script>
+            if (window.top !== window.self) {
+              // We're in an iframe, redirect the parent window
+              window.top.location.href = "${charge.confirmation_url}";
+            } else {
+              // We're not in an iframe, redirect normally
+              window.location.href = "${charge.confirmation_url}";
+            }
+          </script>
+          <p>Redirecting to Shopify billing confirmation...</p>
+        </body>
+      </html>
+    `);
     
   } catch (error) {
     console.error('[BILLING] ERROR creating recurring charge:', error);
@@ -553,9 +572,28 @@ app.get('/billing/lifetime', async (req, res) => {
     );
     console.log(`[BILLING] Charge stored successfully`);
 
-    // Redirect to Shopify's confirmation URL
+    // Redirect to Shopify's confirmation URL (break out of iframe)
     console.log(`[BILLING] Redirecting to confirmation URL: ${charge.confirmation_url}`);
-    res.redirect(charge.confirmation_url);
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Redirecting to Shopify...</title>
+        </head>
+        <body>
+          <script>
+            if (window.top !== window.self) {
+              // We're in an iframe, redirect the parent window
+              window.top.location.href = "${charge.confirmation_url}";
+            } else {
+              // We're not in an iframe, redirect normally
+              window.location.href = "${charge.confirmation_url}";
+            }
+          </script>
+          <p>Redirecting to Shopify billing confirmation...</p>
+        </body>
+      </html>
+    `);}]}}
     
   } catch (error) {
     console.error('[BILLING] ERROR creating lifetime charge:', error);
