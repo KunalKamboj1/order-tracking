@@ -437,7 +437,8 @@ app.get('/billing/subscribe', async (req, res) => {
     console.log(`[BILLING] Access token retrieved for shop: ${shop}`);
     
     // Create recurring charge via Shopify Billing API
-    const returnUrl = `${process.env.BACKEND_URL}/billing/callback?shop=${shop}&type=recurring`;
+    const backendUrl = process.env.BACKEND_URL.endsWith('/') ? process.env.BACKEND_URL.slice(0, -1) : process.env.BACKEND_URL;
+    const returnUrl = `${backendUrl}/billing/callback?shop=${shop}&type=recurring`;
     const chargeData = {
       recurring_application_charge: {
         name: 'Order Tracking Pro - Monthly',
@@ -515,7 +516,8 @@ app.get('/billing/lifetime', async (req, res) => {
     console.log(`[BILLING] Access token retrieved for shop: ${shop}`);
     
     // Create one-time charge via Shopify Billing API
-    const returnUrl = `${process.env.BACKEND_URL}/billing/callback?shop=${shop}&type=lifetime`;
+    const backendUrl = process.env.BACKEND_URL.endsWith('/') ? process.env.BACKEND_URL.slice(0, -1) : process.env.BACKEND_URL;
+    const returnUrl = `${backendUrl}/billing/callback?shop=${shop}&type=lifetime`;
     const chargeData = {
       application_charge: {
         name: 'Order Tracking Pro - Lifetime',
@@ -608,7 +610,8 @@ app.get('/billing/callback', async (req, res) => {
         console.log(`[BILLING CALLBACK] Found latest pending charge: ${actualChargeId}`);
       } else {
         console.log(`[BILLING CALLBACK] ERROR: No pending charge found for shop: ${shop}, type: ${type}`);
-        const errorUrl = `${process.env.FRONTEND_URL}/pricing?billing=error`;
+        const frontendUrl = process.env.FRONTEND_URL.endsWith('/') ? process.env.FRONTEND_URL.slice(0, -1) : process.env.FRONTEND_URL;
+        const errorUrl = `${frontendUrl}/pricing?billing=error`;
         console.log(`[BILLING CALLBACK] Redirecting to error URL: ${errorUrl}`);
         return res.redirect(errorUrl);
       }
@@ -685,12 +688,13 @@ app.get('/billing/callback', async (req, res) => {
     console.log(`[BILLING CALLBACK] Database updated successfully`);
 
     // Redirect based on status
+    const frontendUrl = process.env.FRONTEND_URL.endsWith('/') ? process.env.FRONTEND_URL.slice(0, -1) : process.env.FRONTEND_URL;
     let redirectUrl;
     if (chargeStatus === 'active' || chargeStatus === 'accepted') {
-      redirectUrl = `${process.env.FRONTEND_URL}/?billing=success`;
+      redirectUrl = `${frontendUrl}/?billing=success`;
       console.log(`[BILLING CALLBACK] Charge successful, redirecting to: ${redirectUrl}`);
     } else {
-      redirectUrl = `${process.env.FRONTEND_URL}/pricing?billing=declined`;
+      redirectUrl = `${frontendUrl}/pricing?billing=declined`;
       console.log(`[BILLING CALLBACK] Charge declined, redirecting to: ${redirectUrl}`);
     }
     
@@ -706,7 +710,8 @@ app.get('/billing/callback', async (req, res) => {
       headers: error.response?.headers,
       stack: error.stack
     });
-    const errorUrl = `${process.env.FRONTEND_URL}/pricing?billing=error`;
+    const frontendUrl = process.env.FRONTEND_URL.endsWith('/') ? process.env.FRONTEND_URL.slice(0, -1) : process.env.FRONTEND_URL;
+    const errorUrl = `${frontendUrl}/pricing?billing=error`;
     console.log(`[BILLING CALLBACK] Redirecting to error URL: ${errorUrl}`);
     res.redirect(errorUrl);
   }
