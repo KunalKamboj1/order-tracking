@@ -1,6 +1,6 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-name = "order-tracking"
+name = "Order Tracking Pro"
 client_id = "2d20e8e11bb0f54c316c6394ad8488d1"
 
 application_url = "https://shopify-tracking-backend-new.netlify.app/"
@@ -19,9 +19,15 @@ redirect_urls = [
 [webhooks]
 api_version = "2023-10"
 
+# App lifecycle webhook
 [[webhooks.subscriptions]]
 topics = ["app/uninstalled"]
-uri = "/api/webhooks/app/uninstalled"
+uri = "/webhooks/app/uninstalled"
+
+# GDPR Compliance webhooks (MANDATORY for App Store)
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+uri = "/webhooks"
 
 [pos]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#pos
