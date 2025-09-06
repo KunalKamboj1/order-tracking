@@ -57,6 +57,11 @@ document.addEventListener('DOMContentLoaded', function() {
       return response.json();
     })
     .then(data => {
+      // Check if the response indicates order not found
+      if (data.message === 'Order not found') {
+        showError(resultsContainer, 'Order not found. Please check the order number and try again.');
+        return;
+      }
       displayTrackingResults(resultsContainer, data);
     })
     .catch(error => {
