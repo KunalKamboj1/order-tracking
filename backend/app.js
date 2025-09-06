@@ -472,13 +472,11 @@ app.get('/tracking', (req, res, next) => {
     
     // Fetch order details from Shopify
     try {
-      // Remove # from order_id if present
-      const cleanOrderId = order_id.replace('#', '');
+      console.log(`[TRACKING] Searching for order: ${order_id}`);
       
-      console.log(`[TRACKING] Fetching order details for order: ${cleanOrderId}`);
-      
-      const orderResponse = await axios.get(
-        `https://${shop}/admin/api/2023-10/orders/${cleanOrderId}.json`,
+      // First, search for the order by name to get the actual order ID
+      const ordersResponse = await axios.get(
+        `https://${shop}/admin/api/2023-10/orders.json?name=${encodeURIComponent(order_id)}&limit=1`,
         {
           headers: {
             'X-Shopify-Access-Token': accessToken,
@@ -487,8 +485,19 @@ app.get('/tracking', (req, res, next) => {
         }
       );
       
-      const order = orderResponse.data.order;
-      console.log(`[TRACKING] Order found: ${order.name} - Status: ${order.fulfillment_status || 'unfulfilled'}`);
+      const orders = ordersResponse.data.orders;
+      
+      if (!orders || orders.length === 0) {
+        console.log(`[TRACKING] Order ${order_id} not found by name search`);
+        return res.status(404).json({
+          success: false,
+          error: 'Order not found',
+          message: `Order ${order_id} was not found in your store`
+        });
+      }
+      
+      const order = orders[0];
+       console.log(`[TRACKING] Order found: ${order.name} (ID: ${order.id}) - Status: ${order.fulfillment_status || 'unfulfilled'}`);
       
       // Extract tracking information
       const trackingInfo = {
