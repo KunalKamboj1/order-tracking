@@ -264,13 +264,59 @@ app.get('/callback', async (req, res) => {
     console.log('Database update result:', result.rows[0] ? 'Success' : 'Failed');
     console.log('Shop record:', result.rows[0] ? `ID: ${result.rows[0].id}, Shop: ${result.rows[0].shop}` : 'None');
 
-    res.json({ success: true, message: 'App installed successfully' });
+    // Redirect back to the app after successful installation
+    const appUrl = process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app';
+    const redirectUrl = `${appUrl}?shop=${shopDomain}&installed=true`;
+    
+    console.log('Redirecting to app:', redirectUrl);
+    res.redirect(redirectUrl);
   } catch (error) {
     console.error('OAuth callback error:', error.response?.data || error.message);
     if (error.response?.status === 401) {
       console.error('Access token validation failed - invalid token received');
     }
     res.status(500).json({ error: 'Failed to complete OAuth flow' });
+  }
+});
+
+// Shop status endpoint - checks if shop needs OAuth completion
+app.get('/shop/status', async (req, res) => {
+  const { shop } = req.query;
+  
+  if (!shop) {
+    return res.status(400).json({ error: 'Shop parameter is required' });
+  }
+  
+  try {
+    const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
+    const result = await pool.query('SELECT * FROM shops WHERE shop = $1', [shopDomain]);
+    
+    if (result.rows.length === 0) {
+      return res.json({ 
+        status: 'not_installed',
+        needsAuth: true,
+        authUrl: `/auth?shop=${shopDomain}`
+      });
+    }
+    
+    const shopData = result.rows[0];
+    
+    if (shopData.access_token === 'pending_oauth') {
+      return res.json({ 
+        status: 'pending_oauth',
+        needsAuth: true,
+        authUrl: `/auth?shop=${shopDomain}`
+      });
+    }
+    
+    return res.json({ 
+      status: 'installed',
+      needsAuth: false
+    });
+    
+  } catch (error) {
+    console.error('Shop status check error:', error);
+    res.status(500).json({ error: 'Failed to check shop status' });
   }
 });
 
@@ -816,6 +862,42 @@ app.get('/webhooks/test', (req, res) => {
     timestamp: new Date().toISOString(),
     server: 'order-tracking-pro'
   });
+});
+
+// Webhook endpoint for app installation (handles Partner dashboard installs)
+app.post('/webhooks/app/installed', verifyWebhook, async (req, res) => {
+  console.log('=== APP INSTALLED WEBHOOK ===');
+  
+  try {
+    const webhookData = JSON.parse(req.body.toString());
+    console.log('Webhook data:', webhookData);
+    
+    const shopDomain = req.get('X-Shopify-Shop-Domain');
+    console.log('Shop domain from header:', shopDomain);
+    
+    if (!shopDomain) {
+      console.error('No shop domain in webhook headers');
+      return res.status(400).json({ error: 'Shop domain required' });
+    }
+    
+    // For app/installed webhook, we need to get the access token from Shopify
+    // This happens when app is installed via Partner dashboard
+    console.log('Processing Partner dashboard installation for shop:', shopDomain);
+    
+    // Store shop in database with placeholder token (will be updated when app loads)
+    const result = await pool.query(
+      'INSERT INTO shops (shop, access_token) VALUES ($1, $2) ON CONFLICT (shop) DO UPDATE SET access_token = COALESCE(EXCLUDED.access_token, shops.access_token) RETURNING *',
+      [shopDomain, 'pending_oauth']
+    );
+    
+    console.log('Shop stored/updated:', result.rows[0]);
+    console.log('App installation webhook processed successfully');
+    
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('App installation webhook error:', error);
+    res.status(500).json({ error: 'Failed to process installation webhook' });
+  }
 });
 
 // Webhook endpoint for app uninstallation

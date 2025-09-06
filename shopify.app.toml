@@ -19,7 +19,11 @@ redirect_urls = [
 [webhooks]
 api_version = "2024-10"
 
-# App lifecycle webhook
+# App lifecycle webhooks
+[[webhooks.subscriptions]]
+topics = ["app/installed"]
+uri = "https://order-tracking-pro.onrender.com/webhooks/app/installed"
+
 [[webhooks.subscriptions]]
 topics = ["app/uninstalled"]
 uri = "https://order-tracking-pro.onrender.com/webhooks/app/uninstalled"

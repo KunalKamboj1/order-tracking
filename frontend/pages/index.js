@@ -39,6 +39,33 @@ function Home() {
     setIsClient(true);
     setAppBridge(app);
     
+    // Check shop installation status when app loads
+    const checkShopStatus = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const shop = urlParams.get('shop');
+      
+      if (shop) {
+        try {
+          const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/shop/status?shop=${shop}`);
+          const { status, needsAuth, authUrl } = response.data;
+          
+          console.log('Shop status:', status);
+          
+          if (needsAuth && (status === 'not_installed' || status === 'pending_oauth')) {
+            console.log('Shop needs OAuth completion, redirecting to:', authUrl);
+            // Redirect to complete OAuth flow
+            window.location.href = `${process.env.NEXT_PUBLIC_BACKEND_URL}${authUrl}`;
+            return;
+          }
+        } catch (error) {
+          console.error('Failed to check shop status:', error);
+          // Continue loading the app even if status check fails
+        }
+      }
+    };
+    
+    checkShopStatus();
+    
     // Check for billing status parameters in URL
     const urlParams = new URLSearchParams(window.location.search);
     const billingStatus = urlParams.get('billing');
