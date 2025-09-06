@@ -426,38 +426,75 @@ app.get('/tracking', (req, res, next) => {
   console.log('=== TRACKING REQUEST ===');
   console.log('Shop:', shop);
   console.log('Order ID:', order_id);
-  console.log('Full query params:', req.query);
 
   if (!shop || !order_id) {
-    console.log('Missing required parameters');
     return res.status(400).json({ error: 'Shop and order_id parameters are required' });
   }
 
   try {
+    // Step 1: Shop Validation - Extract shop from query params
     const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
-    console.log('Shop domain:', shopDomain);
     
-    // Get access token from database
+    // Query database for access_token by shop domain
     const result = await pool.query('SELECT access_token FROM shops WHERE shop = $1 LIMIT 1', [shopDomain]);
-    console.log('Database query result:', result.rows.length > 0 ? 'Found shop' : 'Shop not found');
-
+    
+    // If not found → return JSON: { "error": "Invalid shop" }
     if (result.rows.length === 0) {
-      console.log('Shop not authenticated');
-      return res.status(404).json({ error: 'Shop not found or not authenticated' });
+      console.log('Shop not found in database');
+      return res.json({ "error": "Invalid shop" });
     }
 
     const accessToken = result.rows[0].access_token;
-    console.log(`[TRACKING] Access token retrieved for shop: ${shop}`);
+    console.log(`Access token retrieved for shop: ${shopDomain}`);
     
-    console.log(`[TRACKING] Proceeding with order tracking for order: ${order_id}`);
+    // Step 2: Resolve Order ID
+    let numericOrderId = order_id;
     
-    // Fetch order details from Shopify
-    try {
-      console.log(`[TRACKING] Searching for order: ${order_id}`);
+    // If order_id starts with # (e.g. #1001)
+    if (order_id.startsWith('#')) {
+      console.log(`Resolving order name: ${order_id}`);
       
-      // Search for the order by name in the entire Shopify store database
-      const ordersResponse = await axios.get(
-        `https://${shopDomain}/admin/api/2023-10/orders.json?name=${encodeURIComponent(order_id)}&limit=1`,
+      // Call Shopify Orders API: GET /admin/api/2023-10/orders.json?name=%231001&status=any
+      try {
+        const ordersResponse = await axios.get(
+          `https://${shopDomain}/admin/api/2023-10/orders.json?name=${encodeURIComponent(order_id)}&status=any`,
+          {
+            headers: {
+              'X-Shopify-Access-Token': accessToken,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        const orders = ordersResponse.data.orders;
+        
+        if (!orders || orders.length === 0) {
+          console.log(`Order ${order_id} not found`);
+          return res.json({ "tracking_number": null });
+        }
+        
+        // Extract numeric order.id from response
+        numericOrderId = orders[0].id;
+        console.log(`Resolved order ID: ${numericOrderId}`);
+        
+      } catch (orderSearchError) {
+        console.error('Error searching for order:', orderSearchError.message);
+        if (orderSearchError.response?.status === 401) {
+          console.log('401 Unauthorized - returning null tracking');
+          return res.json({ "tracking_number": null });
+        }
+        return res.json({ "tracking_number": null });
+      }
+    }
+    // Else → assume order_id is already numeric
+    
+    // Step 3: Fetch Fulfillments
+    // Call Shopify API: GET /admin/api/2023-10/orders/{orderId}/fulfillments.json
+    try {
+      console.log(`Fetching fulfillments for order ID: ${numericOrderId}`);
+      
+      const fulfillmentsResponse = await axios.get(
+        `https://${shopDomain}/admin/api/2023-10/orders/${numericOrderId}/fulfillments.json`,
         {
           headers: {
             'X-Shopify-Access-Token': accessToken,
@@ -466,98 +503,39 @@ app.get('/tracking', (req, res, next) => {
         }
       );
       
-      const orders = ordersResponse.data.orders;
+      const fulfillments = fulfillmentsResponse.data.fulfillments;
+      console.log(`Found ${fulfillments.length} fulfillments`);
       
-      // Case 3: Order not found
-      if (!orders || orders.length === 0) {
-        console.log(`[TRACKING] Order ${order_id} not found in store database`);
-        return res.json({
-          success: false,
-          message: 'Please check the order number and try again.'
-        });
-      }
-      
-      const order = orders[0];
-      console.log(`[TRACKING] Order found: ${order.name} (ID: ${order.id})`);
-      console.log(`[TRACKING] Order data:`, JSON.stringify(order, null, 2));
-      
-      // Check if order has tracking information
-      const hasTrackingInfo = order.fulfillments && order.fulfillments.length > 0 && 
-                             order.fulfillments.some(f => f.tracking_number || f.tracking_url);
-      
-      if (hasTrackingInfo) {
-        // Case 1: Order found with tracking info
-        console.log(`[TRACKING] Order has tracking information`);
-        
-        const trackingInfo = {
-          order_number: order.name,
-          order_id: order.id,
-          status: order.fulfillment_status || 'unfulfilled',
-          financial_status: order.financial_status,
-          created_at: order.created_at,
-          updated_at: order.updated_at,
-          total_price: order.total_price,
-          currency: order.currency,
-          customer: {
-            email: order.email,
-            first_name: order.customer?.first_name,
-            last_name: order.customer?.last_name
-          },
-          shipping_address: order.shipping_address,
-          fulfillments: order.fulfillments?.map(f => ({
-            id: f.id,
-            status: f.status,
-            tracking_company: f.tracking_company,
-            tracking_number: f.tracking_number,
-            tracking_url: f.tracking_url,
-            created_at: f.created_at,
-            updated_at: f.updated_at
-          })) || [],
-          line_items: order.line_items?.map(item => ({
-            id: item.id,
-            title: item.title,
-            quantity: item.quantity,
-            price: item.price,
-            fulfillment_status: item.fulfillment_status
-          })) || []
-        };
-        
-        console.log(`[TRACKING] Returning tracking info for order: ${order.name}`);
+      // Step 4: Return Response
+      // If fulfillment(s) exist, return first tracking info
+      if (fulfillments && fulfillments.length > 0) {
+        const firstFulfillment = fulfillments[0];
         
         return res.json({
-          success: true,
-          message: 'Order tracking retrieved successfully',
-          tracking: trackingInfo
+          "tracking_number": firstFulfillment.tracking_number || null,
+          "tracking_company": firstFulfillment.tracking_company || null,
+          "tracking_url": firstFulfillment.tracking_url || null
         });
       } else {
-        // Case 2: Order found but no tracking info
-        console.log(`[TRACKING] Order found but no tracking information available`);
-        
-        return res.json({
-          success: false,
-          message: 'Order found but no shipping info available'
-        });
+        // If no fulfillment found → return: { "tracking_number": null }
+        console.log('No fulfillments found');
+        return res.json({ "tracking_number": null });
       }
       
-    } catch (orderError) {
-      console.error(`[TRACKING] Error fetching order ${order_id}:`, orderError.message);
+    } catch (fulfillmentError) {
+      console.error('Error fetching fulfillments:', fulfillmentError.message);
       
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to fetch order details',
-        message: 'Unable to retrieve tracking information at this time'
-      });
+      // On API failure (e.g., 401 Unauthorized) → log error and return: { "tracking_number": null }
+      if (fulfillmentError.response?.status === 401) {
+        console.log('401 Unauthorized - returning null tracking');
+      }
+      
+      return res.json({ "tracking_number": null });
     }
     
   } catch (error) {
-    console.error('[BILLING] ERROR creating recurring charge:', error);
-    console.error('[BILLING] Error details:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      headers: error.response?.headers
-    });
-    res.status(500).json({ error: 'Failed to create subscription', details: error.message });
+    console.error('Tracking endpoint error:', error.message);
+    return res.json({ "tracking_number": null });
   }
 });
 

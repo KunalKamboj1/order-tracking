@@ -191,107 +191,60 @@ function Home() {
 
 
   const renderTrackingResults = () => {
-    if (!trackingData) return null;
+    console.log('renderTrackingResults called with trackingData:', trackingData);
+    
+    if (!trackingData) {
+      console.log('No tracking data available');
+      return null;
+    }
 
-    console.log('Rendering tracking data:', trackingData);
-
-    // Handle the case where tracking data indicates no success
-    if (!trackingData.success) {
+    // Handle error response
+    if (trackingData.error) {
+      console.log('Tracking error:', trackingData.error);
       return (
-        <Banner status="info">
-          <p>{trackingData.message || 'No tracking info found for this order.'}</p>
+        <Banner status="critical">
+          <p>Error: {trackingData.error}</p>
         </Banner>
       );
     }
 
-    // Extract tracking info from the nested structure
-    const trackingInfo = trackingData.tracking;
-    if (!trackingInfo) {
+    // Handle tracking response
+    if (trackingData.tracking_number === null) {
+      console.log('No tracking information available');
       return (
         <Banner status="info">
-          <p>No tracking information available.</p>
+          <p>No tracking information available for this order</p>
         </Banner>
       );
     }
 
-    const fulfillments = trackingInfo.fulfillments || [];
-    const hasTrackingData = fulfillments.some(f => f.tracking_number || f.tracking_company || f.tracking_url);
-
-    if (!hasTrackingData) {
+    // Display tracking information
+    if (trackingData.tracking_number) {
+      console.log('Rendering tracking info:', trackingData);
+      
       return (
-        <Banner status="info">
-          <p>Order found but no tracking information available yet.</p>
-        </Banner>
-      );
-    }
-
-    return (
-      <Card sectioned>
-        <BlockStack gap="400">
-          <Text variant="headingMd" as="h2">Order Tracking Information</Text>
-          
-          <TextContainer>
-            <p><strong>Order Number:</strong> {trackingInfo.order_number}</p>
-            <p><strong>Status:</strong> {trackingInfo.status}</p>
-            <p><strong>Total:</strong> {trackingInfo.currency} {trackingInfo.total_price}</p>
-          </TextContainer>
-
-          {trackingInfo.customer && (
+        <Card sectioned>
+          <BlockStack gap="400">
+            <Text variant="headingMd" as="h2">Tracking Information</Text>
             <TextContainer>
-              <p><strong>Customer:</strong> {trackingInfo.customer.first_name} {trackingInfo.customer.last_name}</p>
-              <p><strong>Email:</strong> {trackingInfo.customer.email}</p>
+              <p><strong>Tracking Number:</strong> {trackingData.tracking_number}</p>
+              {trackingData.tracking_company && (
+                <p><strong>Shipping Company:</strong> {trackingData.tracking_company}</p>
+              )}
+              {trackingData.tracking_url && (
+                <p><strong>Track Package:</strong> <a href={trackingData.tracking_url} target="_blank" rel="noopener noreferrer">Click here to track</a></p>
+              )}
             </TextContainer>
-          )}
+          </BlockStack>
+        </Card>
+      );
+    }
 
-          {fulfillments.map((fulfillment, index) => (
-            <Card key={fulfillment.id || index} sectioned>
-              <BlockStack gap="200">
-                <Text variant="headingMd" as="h3">Shipment {index + 1}</Text>
-                
-                {fulfillment.tracking_company && (
-                  <TextContainer>
-                    <p><strong>Shipping Company:</strong> {fulfillment.tracking_company}</p>
-                  </TextContainer>
-                )}
-                
-                {fulfillment.tracking_number && (
-                  <TextContainer>
-                    <p><strong>Tracking Number:</strong> {fulfillment.tracking_number}</p>
-                  </TextContainer>
-                )}
-                
-                {fulfillment.tracking_url && (
-                  <TextContainer>
-                    <p>
-                      <strong>Track Package:</strong>{' '}
-                      <a href={fulfillment.tracking_url} target="_blank" rel="noopener noreferrer">
-                        View Tracking Details
-                      </a>
-                    </p>
-                  </TextContainer>
-                )}
-
-                <TextContainer>
-                  <p><strong>Fulfillment Status:</strong> {fulfillment.status}</p>
-                </TextContainer>
-              </BlockStack>
-            </Card>
-          ))}
-
-          {trackingInfo.line_items && trackingInfo.line_items.length > 0 && (
-            <Card sectioned>
-              <BlockStack gap="200">
-                <Text variant="headingMd" as="h3">Order Items</Text>
-                {trackingInfo.line_items.map((item, index) => (
-                  <TextContainer key={item.id || index}>
-                    <p><strong>{item.title}</strong> - Qty: {item.quantity} - ${item.price}</p>
-                  </TextContainer>
-                ))}
-              </BlockStack>
-            </Card>
-          )}
-        </BlockStack>
-      </Card>
+    console.log('Unexpected tracking data format:', trackingData);
+    return (
+      <Banner status="warning">
+        <p>Unable to display tracking information</p>
+      </Banner>
     );
   };
 

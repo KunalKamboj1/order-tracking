@@ -57,92 +57,59 @@ export default function Widget() {
   };
 
   const renderTrackingResults = () => {
-    if (!trackingData) return null;
+    console.log('renderTrackingResults called with trackingData:', trackingData);
+    
+    if (!trackingData) {
+      console.log('No tracking data available');
+      return null;
+    }
 
-    console.log('Widget rendering tracking data:', trackingData);
-
-    // Handle the case where tracking data indicates no success
-    if (!trackingData.success) {
+    // Handle error response
+    if (trackingData.error) {
+      console.log('Tracking error:', trackingData.error);
       return (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
-          <p className="text-yellow-800">{trackingData.message || 'No tracking found for this order.'}</p>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
+          <p className="text-red-800">
+            Error: {trackingData.error}
+          </p>
         </div>
       );
     }
 
-    // Extract tracking info from the nested structure
-    const trackingInfo = trackingData.tracking;
-    if (!trackingInfo) {
+    // Handle tracking response
+    if (trackingData.tracking_number === null) {
+      console.log('No tracking information available');
       return (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
-          <p className="text-yellow-800">No tracking information available.</p>
+          <p className="text-yellow-800">
+            No tracking information available for this order
+          </p>
         </div>
       );
     }
 
-    const fulfillments = trackingInfo.fulfillments || [];
-    const hasTrackingData = fulfillments.some(f => f.tracking_number || f.tracking_company || f.tracking_url);
-
-    if (!hasTrackingData) {
+    // Display tracking information
+    if (trackingData.tracking_number) {
+      console.log('Rendering tracking info:', trackingData);
+      
       return (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
-          <p className="text-yellow-800">Order found but no tracking information available yet.</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
-        <h3 className="text-lg font-semibold text-green-800 mb-3">Order Tracking Information</h3>
-        
-        <div className="mb-4 p-3 bg-white rounded border">
-          <div className="mb-2">
-            <span className="font-medium text-gray-700">Order Number:</span>
-            <span className="ml-2 text-gray-900">{trackingInfo.order_number}</span>
-          </div>
-          <div className="mb-2">
-            <span className="font-medium text-gray-700">Status:</span>
-            <span className="ml-2 text-gray-900">{trackingInfo.status}</span>
-          </div>
-          <div className="mb-2">
-            <span className="font-medium text-gray-700">Total:</span>
-            <span className="ml-2 text-gray-900">{trackingInfo.currency} {trackingInfo.total_price}</span>
-          </div>
-          {trackingInfo.customer && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
+          <h3 className="text-lg font-semibold text-green-800 mb-3">Tracking Information</h3>
+          <div className="p-3 bg-white rounded border">
             <div className="mb-2">
-              <span className="font-medium text-gray-700">Customer:</span>
-              <span className="ml-2 text-gray-900">{trackingInfo.customer.first_name} {trackingInfo.customer.last_name}</span>
+              <span className="font-medium text-gray-700">Tracking Number:</span>
+              <span className="ml-2 text-gray-900 font-mono">{trackingData.tracking_number}</span>
             </div>
-          )}
-        </div>
-
-        {fulfillments.map((fulfillment, index) => (
-          <div key={fulfillment.id || index} className="mb-4 p-3 bg-white rounded border">
-            <h4 className="font-semibold text-gray-800 mb-2">Shipment {index + 1}</h4>
-            
-            {fulfillment.tracking_company && (
+            {trackingData.tracking_company && (
               <div className="mb-2">
                 <span className="font-medium text-gray-700">Shipping Company:</span>
-                <span className="ml-2 text-gray-900">{fulfillment.tracking_company}</span>
+                <span className="ml-2 text-gray-900">{trackingData.tracking_company}</span>
               </div>
             )}
-            
-            {fulfillment.tracking_number && (
-              <div className="mb-2">
-                <span className="font-medium text-gray-700">Tracking Number:</span>
-                <span className="ml-2 text-gray-900 font-mono">{fulfillment.tracking_number}</span>
-              </div>
-            )}
-            
-            <div className="mb-2">
-              <span className="font-medium text-gray-700">Fulfillment Status:</span>
-              <span className="ml-2 text-gray-900">{fulfillment.status}</span>
-            </div>
-            
-            {fulfillment.tracking_url && (
+            {trackingData.tracking_url && (
               <div className="mt-3">
                 <a
-                  href={fulfillment.tracking_url}
+                  href={trackingData.tracking_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
@@ -152,18 +119,16 @@ export default function Widget() {
               </div>
             )}
           </div>
-        ))}
+        </div>
+      );
+    }
 
-        {trackingInfo.line_items && trackingInfo.line_items.length > 0 && (
-          <div className="mt-4 p-3 bg-white rounded border">
-            <h4 className="font-semibold text-gray-800 mb-2">Order Items</h4>
-            {trackingInfo.line_items.map((item, index) => (
-              <div key={item.id || index} className="mb-1">
-                <span className="text-gray-900">{item.title} - Qty: {item.quantity} - ${item.price}</span>
-              </div>
-            ))}
-          </div>
-        )}
+    console.log('Unexpected tracking data format:', trackingData);
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
+        <p className="text-red-800">
+          Unable to display tracking information
+        </p>
       </div>
     );
   };
