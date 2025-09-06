@@ -1,27 +1,62 @@
 {{ 'tracking-widget.css' | asset_url | stylesheet_tag }}
 
-<div class="tracking-widget" style="color: {{ block.settings.text_color }};">
+<div class="tracking-widget" 
+     style="color: {{ block.settings.text_color }}; 
+            padding: {{ block.settings.widget_padding }}px; 
+            background-color: {{ block.settings.background_color }}; 
+            border-radius: {{ block.settings.border_radius }}px;
+            {% if block.settings.show_border %}border: {{ block.settings.border_width }}px solid {{ block.settings.border_color }};{% endif %}
+            {% if block.settings.show_shadow %}box-shadow: 0 {{ block.settings.shadow_blur }}px {{ block.settings.shadow_spread }}px rgba(0,0,0,0.1);{% endif %}">
+  
   {% if block.settings.show_heading %}
-    <h2 class="tracking-widget__heading">{{ block.settings.heading }}</h2>
+    <h2 class="tracking-widget__heading" 
+        style="font-size: {{ block.settings.heading_size }}px; 
+               font-weight: {{ block.settings.heading_weight }}; 
+               margin-bottom: {{ block.settings.heading_margin }}px;
+               text-align: {{ block.settings.text_alignment }};">
+      {{ block.settings.heading }}
+    </h2>
   {% endif %}
   
-  <div class="tracking-widget__form">
+  {% if block.settings.show_description and block.settings.description != blank %}
+    <p class="tracking-widget__description" 
+       style="font-size: {{ block.settings.description_size }}px; 
+              margin-bottom: {{ block.settings.description_margin }}px;
+              text-align: {{ block.settings.text_alignment }};
+              opacity: 0.8;">
+      {{ block.settings.description }}
+    </p>
+  {% endif %}
+  
+  <div class="tracking-widget__form" 
+       style="margin-bottom: {{ block.settings.form_margin }}px;">
     <input 
       type="text" 
       id="tracking-order-input-{{ block.id }}" 
       class="tracking-widget__input"
-      placeholder="Enter your order number" 
+      placeholder="{{ block.settings.input_placeholder }}" 
+      style="font-size: {{ block.settings.input_size }}px;
+             padding: {{ block.settings.input_padding }}px;
+             border-radius: {{ block.settings.input_border_radius }}px;
+             border: {{ block.settings.input_border_width }}px solid {{ block.settings.input_border_color }};"
     />
     <button 
       id="tracking-order-btn-{{ block.id }}" 
       class="tracking-widget__button"
-      style="background-color: {{ block.settings.button_color }};"
+      style="background-color: {{ block.settings.button_color }};
+             color: {{ block.settings.button_text_color }};
+             font-size: {{ block.settings.button_size }}px;
+             padding: {{ block.settings.button_padding }}px {{ block.settings.button_padding | times: 1.5 }}px;
+             border-radius: {{ block.settings.button_border_radius }}px;
+             font-weight: {{ block.settings.button_weight }};"
     >
       {{ block.settings.button_text }}
     </button>
   </div>
   
-  <div id="tracking-results-{{ block.id }}" class="tracking-widget__results"></div>
+  <div id="tracking-results-{{ block.id }}" 
+       class="tracking-widget__results"
+       style="font-size: {{ block.settings.results_size }}px;"></div>
 </div>
 
 <script>
@@ -31,13 +66,17 @@
   };
 </script>
 
-<script src="{{ 'tracking-widget.js' | asset_url }}" async></script>
+{{ 'tracking-widget.js' | asset_url | script_tag }}
 
 {% schema %}
 {
   "name": "Order Tracking Widget",
   "target": "section",
   "settings": [
+    {
+      "type": "header",
+      "content": "Content Settings"
+    },
     {
       "type": "text",
       "id": "heading",
@@ -51,6 +90,145 @@
       "default": true
     },
     {
+      "type": "textarea",
+      "id": "description",
+      "label": "Description",
+      "info": "Optional description text below the heading",
+      "default": "Enter your order number below to track your shipment status and delivery information."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_description",
+      "label": "Show description",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "input_placeholder",
+      "label": "Input placeholder text",
+      "default": "Enter your order number"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "Button text",
+      "default": "Track Order"
+    },
+    {
+      "type": "header",
+      "content": "Layout & Alignment"
+    },
+    {
+      "type": "select",
+      "id": "text_alignment",
+      "label": "Text alignment",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Center" },
+        { "value": "right", "label": "Right" }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "range",
+      "id": "widget_padding",
+      "label": "Widget padding",
+      "min": 0,
+      "max": 50,
+      "step": 5,
+      "default": 20,
+      "unit": "px"
+    },
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "range",
+      "id": "heading_size",
+      "label": "Heading font size",
+      "min": 14,
+      "max": 48,
+      "step": 2,
+      "default": 24,
+      "unit": "px"
+    },
+    {
+      "type": "select",
+      "id": "heading_weight",
+      "label": "Heading font weight",
+      "options": [
+        { "value": "300", "label": "Light" },
+        { "value": "400", "label": "Normal" },
+        { "value": "500", "label": "Medium" },
+        { "value": "600", "label": "Semi Bold" },
+        { "value": "700", "label": "Bold" }
+      ],
+      "default": "600"
+    },
+    {
+      "type": "range",
+      "id": "description_size",
+      "label": "Description font size",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "default": 14,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "input_size",
+      "label": "Input font size",
+      "min": 12,
+      "max": 20,
+      "step": 1,
+      "default": 14,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "button_size",
+      "label": "Button font size",
+      "min": 12,
+      "max": 20,
+      "step": 1,
+      "default": 14,
+      "unit": "px"
+    },
+    {
+      "type": "select",
+      "id": "button_weight",
+      "label": "Button font weight",
+      "options": [
+        { "value": "400", "label": "Normal" },
+        { "value": "500", "label": "Medium" },
+        { "value": "600", "label": "Semi Bold" },
+        { "value": "700", "label": "Bold" }
+      ],
+      "default": "500"
+    },
+    {
+      "type": "range",
+      "id": "results_size",
+      "label": "Results font size",
+      "min": 12,
+      "max": 18,
+      "step": 1,
+      "default": 14,
+      "unit": "px"
+    },
+    {
+      "type": "header",
+      "content": "Colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background color",
+      "default": "#ffffff"
+    },
+    {
       "type": "color",
       "id": "text_color",
       "label": "Text color",
@@ -59,14 +237,166 @@
     {
       "type": "color",
       "id": "button_color",
-      "label": "Button color",
+      "label": "Button background color",
       "default": "#1a73e8"
     },
     {
-      "type": "text",
-      "id": "button_text",
-      "label": "Button text",
-      "default": "Track Order"
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Button text color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "input_border_color",
+      "label": "Input border color",
+      "default": "#d1d5db"
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "heading_margin",
+      "label": "Heading bottom margin",
+      "min": 0,
+      "max": 30,
+      "step": 2,
+      "default": 10,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "description_margin",
+      "label": "Description bottom margin",
+      "min": 0,
+      "max": 30,
+      "step": 2,
+      "default": 15,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "form_margin",
+      "label": "Form bottom margin",
+      "min": 0,
+      "max": 30,
+      "step": 2,
+      "default": 20,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "input_padding",
+      "label": "Input padding",
+      "min": 8,
+      "max": 20,
+      "step": 2,
+      "default": 12,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "button_padding",
+      "label": "Button padding",
+      "min": 8,
+      "max": 20,
+      "step": 2,
+      "default": 12,
+      "unit": "px"
+    },
+    {
+      "type": "header",
+      "content": "Border & Effects"
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "label": "Widget border radius",
+      "min": 0,
+      "max": 20,
+      "step": 2,
+      "default": 8,
+      "unit": "px"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_border",
+      "label": "Show widget border",
+      "default": false
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Border color",
+      "default": "#e5e7eb"
+    },
+    {
+      "type": "range",
+      "id": "border_width",
+      "label": "Border width",
+      "min": 1,
+      "max": 5,
+      "step": 1,
+      "default": 1,
+      "unit": "px"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_shadow",
+      "label": "Show shadow",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "shadow_blur",
+      "label": "Shadow blur",
+      "min": 0,
+      "max": 20,
+      "step": 2,
+      "default": 4,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "shadow_spread",
+      "label": "Shadow spread",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "default": 2,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "input_border_radius",
+      "label": "Input border radius",
+      "min": 0,
+      "max": 15,
+      "step": 1,
+      "default": 6,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "input_border_width",
+      "label": "Input border width",
+      "min": 1,
+      "max": 3,
+      "step": 1,
+      "default": 1,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "button_border_radius",
+      "label": "Button border radius",
+      "min": 0,
+      "max": 15,
+      "step": 1,
+      "default": 6,
+      "unit": "px"
     }
   ]
 }
