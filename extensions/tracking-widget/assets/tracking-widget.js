@@ -57,20 +57,23 @@ document.addEventListener('DOMContentLoaded', function() {
       return response.json();
     })
     .then(data => {
-      // Check if the response indicates order not found
-      if (data.message === 'Order not found') {
-        showError(resultsContainer, 'Order not found. Please check the order number and try again.');
+      // Handle error response from new API format
+      if (data.error) {
+        showError(resultsContainer, data.error);
         return;
       }
+      
+      // Handle tracking_number null (no tracking info available)
+      if (data.tracking_number === null) {
+        showError(resultsContainer, 'No tracking information available for this order.');
+        return;
+      }
+      
       displayTrackingResults(resultsContainer, data);
     })
     .catch(error => {
       console.error('Tracking error:', error);
-      if (error.message === 'Order not found') {
-        showError(resultsContainer, 'Order not found. Please check the order number and try again.');
-      } else {
-        showError(resultsContainer, 'Unable to retrieve tracking information. Please try again later.');
-      }
+      showError(resultsContainer, 'Unable to retrieve tracking information. Please try again later.');
     })
     .finally(() => {
       // Reset button state
@@ -84,23 +87,15 @@ document.addEventListener('DOMContentLoaded', function() {
     container.hidden = false;
     container.style.display = 'block';
     
-    // Check if we have any tracking information
-    const hasTrackingInfo = data.tracking_company || data.tracking_number || data.tracking_url;
-    
-    if (!hasTrackingInfo) {
-      showError(container, 'Order found but not dispatched yet. Tracking information will be available once your order ships.');
-      return;
-    }
-    
     let html = '<div class="tracking-widget__success">';
     html += '<h3>Tracking Information</h3>';
     
-    if (data.tracking_company) {
-      html += `<p><strong>Carrier:</strong> ${escapeHtml(data.tracking_company)}</p>`;
-    }
-    
     if (data.tracking_number) {
       html += `<p><strong>Tracking Number:</strong> ${escapeHtml(data.tracking_number)}</p>`;
+    }
+    
+    if (data.tracking_company) {
+      html += `<p><strong>Carrier:</strong> ${escapeHtml(data.tracking_company)}</p>`;
     }
     
     if (data.tracking_url) {
