@@ -203,11 +203,6 @@ app.get('/callback', async (req, res) => {
     const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
     console.log('Shop domain:', shopDomain);
     
-    // Clean up any existing data for fresh installation
-    console.log('Cleaning up existing data for fresh installation...');
-    await pool.query('DELETE FROM charges WHERE shop = $1', [shopDomain]);
-    console.log('Existing billing data cleaned up');
-    
     // Exchange code for access token
     console.log('Exchanging code for access token...');
     const tokenResponse = await axios.post(`https://${shopDomain}/admin/oauth/access_token`, {
@@ -295,17 +290,6 @@ app.get('/tracking', (req, res, next) => {
       console.log('Access token test successful - shop name:', shopInfoResponse.data.shop?.name || 'Unknown');
     } catch (tokenTestError) {
       console.error('Access token test failed:', tokenTestError.response?.status, tokenTestError.response?.data || tokenTestError.message);
-      if (tokenTestError.response?.status === 401) {
-        // Clean up invalid token from database
-        await pool.query('DELETE FROM shops WHERE shop = $1', [shopDomain]);
-        await pool.query('DELETE FROM charges WHERE shop = $1', [shopDomain]);
-        console.log('Cleaned up invalid shop data from database');
-        return res.status(401).json({ 
-          error: 'Invalid access token', 
-          message: 'The app needs to be reinstalled. Please reinstall the app from your Shopify admin.',
-          action: 'reinstall_required'
-        });
-      }
       return res.status(401).json({ error: 'Invalid or expired access token' });
     }
 
@@ -447,16 +431,8 @@ app.get('/tracking', (req, res, next) => {
     console.error('Full error:', error);
     
     if (error.response?.status === 401) {
-      console.log('Access token invalid (401 error) - app needs to be reinstalled');
-      // Clean up invalid token from database
-      await pool.query('DELETE FROM shops WHERE shop = $1', [shopDomain]);
-      await pool.query('DELETE FROM charges WHERE shop = $1', [shopDomain]);
-      console.log('Cleaned up invalid shop data from database');
-      return res.status(401).json({ 
-        error: 'Invalid access token', 
-        message: 'The app needs to be reinstalled. Please reinstall the app from your Shopify admin.',
-        action: 'reinstall_required'
-      });
+      console.log('Access token invalid (401 error)');
+      return res.status(401).json({ error: 'Invalid or expired access token' });
     }
     
     if (error.response?.status === 404) {
