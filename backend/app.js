@@ -252,21 +252,8 @@ app.get('/callback', async (req, res) => {
     });
     console.log('Access token validation successful');
 
-    // Check for existing shop data and clean up stale billing records if needed
-    console.log('Checking for existing shop data...');
-    const existingShop = await pool.query('SELECT * FROM shops WHERE shop = $1', [shopDomain]);
-    
-    if (existingShop.rows.length > 0) {
-      console.log('Shop exists - this is a reinstallation. Cleaning up stale billing data...');
-      
-      // Clean up any stale billing records from previous installation
-      const billingCleanup = await pool.query('DELETE FROM charges WHERE shop = $1', [shopDomain]);
-      console.log(`Cleaned up ${billingCleanup.rowCount} stale billing records`);
-      
-      console.log('Reinstallation detected - updating access token for existing shop');
-    } else {
-      console.log('New shop installation detected');
-    }
+    // Store/update shop data (reinstallation handling via upsert)
+    console.log('Processing shop installation/reinstallation...');
 
     // Store/update token in database
     console.log('Storing token in database...');
