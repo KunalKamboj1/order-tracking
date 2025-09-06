@@ -357,66 +357,43 @@ app.get('/tracking', (req, res, next) => {
     const accessToken = result.rows[0].access_token;
     console.log(`[BILLING] Access token retrieved for shop: ${shop}`);
     
-    // Create one-time lifetime charge via Shopify Billing API
-    const backendUrl = process.env.BACKEND_URL.endsWith('/') ? process.env.BACKEND_URL.slice(0, -1) : process.env.BACKEND_URL;
-    const returnUrl = `${backendUrl}/billing/callback?shop=${shop}&type=lifetime`;
-    const chargeData = {
-      application_charge: {
-        name: 'Order Tracking Pro - Lifetime',
-        price: 150.00,
-        test: true, // Set to false in production
-        return_url: returnUrl
-      }
-    };
+    // Check if shop has active billing (including free plan)
+    const hasActive = await hasActiveBilling(shop);
+    if (!hasActive) {
+      console.log(`[BILLING] No active billing found for shop: ${shop}. Redirecting to pricing.`);
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Subscription Required</title>
+          </head>
+          <body>
+            <script>
+              if (window.top !== window.self) {
+                // We're in an iframe, redirect the parent window
+                window.top.location.href = "https://${shop}/admin/apps/order-tracking-pro-1?billing=required";
+              } else {
+                // We're not in an iframe, redirect normally
+                window.location.href = "https://${shop}/admin/apps/order-tracking-pro-1?billing=required";
+              }
+            </script>
+            <p>Subscription required. Redirecting to pricing...</p>
+          </body>
+        </html>
+      `);
+    }
     
-    console.log(`[BILLING] Creating lifetime charge with data:`, JSON.stringify(chargeData, null, 2));
-    console.log(`[BILLING] Return URL: ${returnUrl}`);
-    console.log(`[BILLING] Shopify API URL: https://${shop}/admin/api/2023-10/application_charges.json`);
-
-    const response = await axios.post(
-      `https://${shop}/admin/api/2023-10/application_charges.json`,
-      chargeData,
-      {
-        headers: {
-          'X-Shopify-Access-Token': accessToken,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    const charge = response.data.application_charge;
-    console.log(`[BILLING] Shopify API response:`, JSON.stringify(charge, null, 2));
+    console.log(`[TRACKING] Shop has active billing. Proceeding with order tracking for order: ${order_id}`);
     
-    // Store charge in database
-    console.log(`[BILLING] Storing charge in database: ${charge.id}`);
-    await pool.query(
-      'INSERT INTO charges (shop, charge_id, status, type, amount, trial_days) VALUES ($1, $2, $3, $4, $5, $6)',
-      [shop, charge.id.toString(), 'pending', 'lifetime', 150.00, 0]
-    );
-    console.log(`[BILLING] Charge stored successfully`);
-
-    // Redirect to Shopify's confirmation URL (break out of iframe)
-    console.log(`[BILLING] Redirecting to confirmation URL: ${charge.confirmation_url}`);
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Redirecting to Shopify...</title>
-        </head>
-        <body>
-          <script>
-            if (window.top !== window.self) {
-              // We're in an iframe, redirect the parent window
-              window.top.location.href = "${charge.confirmation_url}";
-            } else {
-              // We're not in an iframe, redirect normally
-              window.location.href = "${charge.confirmation_url}";
-            }
-          </script>
-          <p>Redirecting to Shopify billing confirmation...</p>
-        </body>
-      </html>
-    `);
+    // TODO: Add actual order tracking logic here
+    // For now, return a simple success response
+    res.json({
+      success: true,
+      message: 'Order tracking accessed successfully',
+      shop: shop,
+      order_id: order_id,
+      status: 'active'
+    });
     
   } catch (error) {
     console.error('[BILLING] ERROR creating recurring charge:', error);
