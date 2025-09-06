@@ -589,13 +589,13 @@ app.get('/billing/free', async (req, res) => {
     
     console.log(`[BILLING] Free plan activated for shop: ${shop}`);
     
-    // Redirect back to app with success (same as other billing endpoints)
-    const redirectUrl = `https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=success&plan=free`;
+    // Redirect back to app with success (using correct Shopify admin URL format)
+    const redirectUrl = `https://admin.shopify.com/store/${shop}/apps/track-order-34?billing=success&plan=free`;
     res.redirect(redirectUrl);
     
   } catch (error) {
     console.error('[BILLING] Free plan activation error:', error);
-    const errorUrl = `https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=error&message=${encodeURIComponent('Failed to activate free plan')}`;
+    const errorUrl = `https://admin.shopify.com/store/${shop}/apps/track-order-34?billing=error&message=${encodeURIComponent('Failed to activate free plan')}`;
     res.redirect(errorUrl);
   }
 });
@@ -918,7 +918,7 @@ app.get('/billing/callback', async (req, res) => {
       } else {
         console.log(`[BILLING CALLBACK] ERROR: No pending charge found for shop: ${shop}, type: ${type}`);
         // Redirect to the app in Shopify admin with error parameter
-        const errorUrl = `https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=error`;
+        const errorUrl = `https://admin.shopify.com/store/${shop}/apps/track-order-34?billing=error`;
         console.log(`[BILLING CALLBACK] Redirecting to error URL: ${errorUrl}`);
         return res.redirect(errorUrl);
       }
@@ -998,11 +998,11 @@ app.get('/billing/callback', async (req, res) => {
     let redirectUrl;
     if (chargeStatus === 'active' || chargeStatus === 'accepted') {
       // Redirect to the app in Shopify admin with success parameter
-      redirectUrl = `https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=success`;
+      redirectUrl = `https://admin.shopify.com/store/${shop}/apps/track-order-34?billing=success`;
       console.log(`[BILLING CALLBACK] Charge successful, redirecting to: ${redirectUrl}`);
     } else {
       // Redirect to the app in Shopify admin with declined parameter
-      redirectUrl = `https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=declined`;
+      redirectUrl = `https://admin.shopify.com/store/${shop}/apps/track-order-34?billing=declined`;
       console.log(`[BILLING CALLBACK] Charge declined, redirecting to: ${redirectUrl}`);
     }
     
