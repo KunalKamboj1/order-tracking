@@ -558,8 +558,28 @@ app.get('/billing/subscribe', (req, res, next) => {
     console.log('Recurring charge created successfully');
     console.log('Redirecting to confirmation URL:', data.recurring_application_charge.confirmation_url);
     
-    // Redirect user to Shopify charge confirmation page
-    res.redirect(data.recurring_application_charge.confirmation_url);
+    // Handle iframe redirect for Partner dashboard access
+    const confirmationUrl = data.recurring_application_charge.confirmation_url;
+    res.send(`
+       <!DOCTYPE html>
+       <html>
+         <head>
+           <title>Redirecting to Shopify...</title>
+         </head>
+         <body>
+           <script>
+             if (window.top !== window.self) {
+               // We're in an iframe, redirect the parent window
+               window.top.location.href = "${confirmationUrl}";
+             } else {
+               // We're not in an iframe, redirect normally
+               window.location.href = "${confirmationUrl}";
+             }
+           </script>
+           <p>Redirecting to Shopify billing confirmation...</p>
+         </body>
+       </html>
+     `);
   } catch (error) {
     console.error('Billing subscription error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
