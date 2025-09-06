@@ -42,7 +42,7 @@
         style="margin-bottom: {{ block.settings.element_spacing }}px;">
     <div class="form-group">
       <input type="text" 
-             id="orderNumber" 
+             id="tracking-order-input-{{ block.id }}" 
              placeholder="{{ block.settings.input_placeholder }}" 
              style="
                width: 100%;
@@ -55,7 +55,8 @@
              " 
              required>
       
-      <button type="submit" 
+      <button type="button" 
+              id="tracking-order-btn-{{ block.id }}"
               style="
                 background-color: {{ block.settings.button_color }};
                 color: {{ block.settings.button_text_color }};
@@ -75,7 +76,7 @@
     </div>
   </form>
   
-  <div id="tracking-results" 
+  <div id="tracking-results-{{ block.id }}" 
        class="tracking-results" 
        style="font-size: {{ block.settings.text_size }}px;
               color: {{ block.settings.text_color }};
