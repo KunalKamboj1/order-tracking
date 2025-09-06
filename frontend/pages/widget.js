@@ -59,44 +59,109 @@ export default function Widget() {
   const renderTrackingResults = () => {
     if (!trackingData) return null;
 
-    const { tracking_number, tracking_company, tracking_url } = trackingData;
+    console.log('Widget rendering tracking data:', trackingData);
 
-    if (!tracking_number && !tracking_company && !tracking_url) {
+    // Handle the case where tracking data indicates no success
+    if (!trackingData.success) {
       return (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
-          <p className="text-yellow-800">No tracking found for this order.</p>
+          <p className="text-yellow-800">{trackingData.message || 'No tracking found for this order.'}</p>
+        </div>
+      );
+    }
+
+    // Extract tracking info from the nested structure
+    const trackingInfo = trackingData.tracking;
+    if (!trackingInfo) {
+      return (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
+          <p className="text-yellow-800">No tracking information available.</p>
+        </div>
+      );
+    }
+
+    const fulfillments = trackingInfo.fulfillments || [];
+    const hasTrackingData = fulfillments.some(f => f.tracking_number || f.tracking_company || f.tracking_url);
+
+    if (!hasTrackingData) {
+      return (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
+          <p className="text-yellow-800">Order found but no tracking information available yet.</p>
         </div>
       );
     }
 
     return (
       <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
-        <h3 className="text-lg font-semibold text-green-800 mb-3">Tracking Information</h3>
+        <h3 className="text-lg font-semibold text-green-800 mb-3">Order Tracking Information</h3>
         
-        {tracking_company && (
+        <div className="mb-4 p-3 bg-white rounded border">
           <div className="mb-2">
-            <span className="font-medium text-gray-700">Shipping Company:</span>
-            <span className="ml-2 text-gray-900">{tracking_company}</span>
+            <span className="font-medium text-gray-700">Order Number:</span>
+            <span className="ml-2 text-gray-900">{trackingInfo.order_number}</span>
           </div>
-        )}
-        
-        {tracking_number && (
           <div className="mb-2">
-            <span className="font-medium text-gray-700">Tracking Number:</span>
-            <span className="ml-2 text-gray-900 font-mono">{tracking_number}</span>
+            <span className="font-medium text-gray-700">Status:</span>
+            <span className="ml-2 text-gray-900">{trackingInfo.status}</span>
           </div>
-        )}
-        
-        {tracking_url && (
-          <div className="mt-3">
-            <a
-              href={tracking_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-            >
-              Track Package →
-            </a>
+          <div className="mb-2">
+            <span className="font-medium text-gray-700">Total:</span>
+            <span className="ml-2 text-gray-900">{trackingInfo.currency} {trackingInfo.total_price}</span>
+          </div>
+          {trackingInfo.customer && (
+            <div className="mb-2">
+              <span className="font-medium text-gray-700">Customer:</span>
+              <span className="ml-2 text-gray-900">{trackingInfo.customer.first_name} {trackingInfo.customer.last_name}</span>
+            </div>
+          )}
+        </div>
+
+        {fulfillments.map((fulfillment, index) => (
+          <div key={fulfillment.id || index} className="mb-4 p-3 bg-white rounded border">
+            <h4 className="font-semibold text-gray-800 mb-2">Shipment {index + 1}</h4>
+            
+            {fulfillment.tracking_company && (
+              <div className="mb-2">
+                <span className="font-medium text-gray-700">Shipping Company:</span>
+                <span className="ml-2 text-gray-900">{fulfillment.tracking_company}</span>
+              </div>
+            )}
+            
+            {fulfillment.tracking_number && (
+              <div className="mb-2">
+                <span className="font-medium text-gray-700">Tracking Number:</span>
+                <span className="ml-2 text-gray-900 font-mono">{fulfillment.tracking_number}</span>
+              </div>
+            )}
+            
+            <div className="mb-2">
+              <span className="font-medium text-gray-700">Fulfillment Status:</span>
+              <span className="ml-2 text-gray-900">{fulfillment.status}</span>
+            </div>
+            
+            {fulfillment.tracking_url && (
+              <div className="mt-3">
+                <a
+                  href={fulfillment.tracking_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Track Package →
+                </a>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {trackingInfo.line_items && trackingInfo.line_items.length > 0 && (
+          <div className="mt-4 p-3 bg-white rounded border">
+            <h4 className="font-semibold text-gray-800 mb-2">Order Items</h4>
+            {trackingInfo.line_items.map((item, index) => (
+              <div key={item.id || index} className="mb-1">
+                <span className="text-gray-900">{item.title} - Qty: {item.quantity} - ${item.price}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>

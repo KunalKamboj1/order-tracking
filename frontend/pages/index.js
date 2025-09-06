@@ -193,12 +193,34 @@ function Home() {
   const renderTrackingResults = () => {
     if (!trackingData) return null;
 
-    const { tracking_number, tracking_company, tracking_url } = trackingData;
+    console.log('Rendering tracking data:', trackingData);
 
-    if (!tracking_number && !tracking_company && !tracking_url) {
+    // Handle the case where tracking data indicates no success
+    if (!trackingData.success) {
       return (
         <Banner status="info">
-          <p>No tracking info found for this order.</p>
+          <p>{trackingData.message || 'No tracking info found for this order.'}</p>
+        </Banner>
+      );
+    }
+
+    // Extract tracking info from the nested structure
+    const trackingInfo = trackingData.tracking;
+    if (!trackingInfo) {
+      return (
+        <Banner status="info">
+          <p>No tracking information available.</p>
+        </Banner>
+      );
+    }
+
+    const fulfillments = trackingInfo.fulfillments || [];
+    const hasTrackingData = fulfillments.some(f => f.tracking_number || f.tracking_company || f.tracking_url);
+
+    if (!hasTrackingData) {
+      return (
+        <Banner status="info">
+          <p>Order found but no tracking information available yet.</p>
         </Banner>
       );
     }
@@ -206,29 +228,67 @@ function Home() {
     return (
       <Card sectioned>
         <BlockStack gap="400">
-          <Text variant="headingMd" as="h2">Tracking Information</Text>
+          <Text variant="headingMd" as="h2">Order Tracking Information</Text>
           
-          {tracking_company && (
+          <TextContainer>
+            <p><strong>Order Number:</strong> {trackingInfo.order_number}</p>
+            <p><strong>Status:</strong> {trackingInfo.status}</p>
+            <p><strong>Total:</strong> {trackingInfo.currency} {trackingInfo.total_price}</p>
+          </TextContainer>
+
+          {trackingInfo.customer && (
             <TextContainer>
-              <p><strong>Shipping Company:</strong> {tracking_company}</p>
+              <p><strong>Customer:</strong> {trackingInfo.customer.first_name} {trackingInfo.customer.last_name}</p>
+              <p><strong>Email:</strong> {trackingInfo.customer.email}</p>
             </TextContainer>
           )}
-          
-          {tracking_number && (
-            <TextContainer>
-              <p><strong>Tracking Number:</strong> {tracking_number}</p>
-            </TextContainer>
-          )}
-          
-          {tracking_url && (
-            <TextContainer>
-              <p>
-                <strong>Track Package:</strong>{' '}
-                <a href={tracking_url} target="_blank" rel="noopener noreferrer">
-                  View Tracking Details
-                </a>
-              </p>
-            </TextContainer>
+
+          {fulfillments.map((fulfillment, index) => (
+            <Card key={fulfillment.id || index} sectioned>
+              <BlockStack gap="200">
+                <Text variant="headingMd" as="h3">Shipment {index + 1}</Text>
+                
+                {fulfillment.tracking_company && (
+                  <TextContainer>
+                    <p><strong>Shipping Company:</strong> {fulfillment.tracking_company}</p>
+                  </TextContainer>
+                )}
+                
+                {fulfillment.tracking_number && (
+                  <TextContainer>
+                    <p><strong>Tracking Number:</strong> {fulfillment.tracking_number}</p>
+                  </TextContainer>
+                )}
+                
+                {fulfillment.tracking_url && (
+                  <TextContainer>
+                    <p>
+                      <strong>Track Package:</strong>{' '}
+                      <a href={fulfillment.tracking_url} target="_blank" rel="noopener noreferrer">
+                        View Tracking Details
+                      </a>
+                    </p>
+                  </TextContainer>
+                )}
+
+                <TextContainer>
+                  <p><strong>Fulfillment Status:</strong> {fulfillment.status}</p>
+                </TextContainer>
+              </BlockStack>
+            </Card>
+          ))}
+
+          {trackingInfo.line_items && trackingInfo.line_items.length > 0 && (
+            <Card sectioned>
+              <BlockStack gap="200">
+                <Text variant="headingMd" as="h3">Order Items</Text>
+                {trackingInfo.line_items.map((item, index) => (
+                  <TextContainer key={item.id || index}>
+                    <p><strong>{item.title}</strong> - Qty: {item.quantity} - ${item.price}</p>
+                  </TextContainer>
+                ))}
+              </BlockStack>
+            </Card>
           )}
         </BlockStack>
       </Card>
