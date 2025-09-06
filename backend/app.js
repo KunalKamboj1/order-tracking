@@ -203,6 +203,11 @@ app.get('/callback', async (req, res) => {
     const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
     console.log('Shop domain:', shopDomain);
     
+    // Clean up any existing data for fresh installation
+    console.log('Cleaning up existing data for fresh installation...');
+    await pool.query('DELETE FROM charges WHERE shop = $1', [shopDomain]);
+    console.log('Existing billing data cleaned up');
+    
     // Exchange code for access token
     console.log('Exchanging code for access token...');
     const tokenResponse = await axios.post(`https://${shopDomain}/admin/oauth/access_token`, {
@@ -213,6 +218,15 @@ app.get('/callback', async (req, res) => {
 
     const { access_token } = tokenResponse.data;
     console.log('Access token received:', access_token ? `${access_token.substring(0, 10)}...` : 'None');
+
+    // Validate the new access token
+    console.log('Validating access token...');
+    const validationResponse = await axios.get(`https://${shopDomain}/admin/api/2023-10/shop.json`, {
+      headers: {
+        'X-Shopify-Access-Token': access_token
+      }
+    });
+    console.log('Access token validation successful');
 
     // Store token in database
     console.log('Storing token in database...');
@@ -225,6 +239,9 @@ app.get('/callback', async (req, res) => {
     res.json({ success: true, message: 'App installed successfully' });
   } catch (error) {
     console.error('OAuth callback error:', error.response?.data || error.message);
+    if (error.response?.status === 401) {
+      console.error('Access token validation failed - invalid token received');
+    }
     res.status(500).json({ error: 'Failed to complete OAuth flow' });
   }
 });
@@ -278,6 +295,17 @@ app.get('/tracking', (req, res, next) => {
       console.log('Access token test successful - shop name:', shopInfoResponse.data.shop?.name || 'Unknown');
     } catch (tokenTestError) {
       console.error('Access token test failed:', tokenTestError.response?.status, tokenTestError.response?.data || tokenTestError.message);
+      if (tokenTestError.response?.status === 401) {
+        // Clean up invalid token from database
+        await pool.query('DELETE FROM shops WHERE shop = $1', [shopDomain]);
+        await pool.query('DELETE FROM charges WHERE shop = $1', [shopDomain]);
+        console.log('Cleaned up invalid shop data from database');
+        return res.status(401).json({ 
+          error: 'Invalid access token', 
+          message: 'The app needs to be reinstalled. Please reinstall the app from your Shopify admin.',
+          action: 'reinstall_required'
+        });
+      }
       return res.status(401).json({ error: 'Invalid or expired access token' });
     }
 
@@ -417,6 +445,19 @@ app.get('/tracking', (req, res, next) => {
     console.error('Error response status:', error.response?.status);
     console.error('Error response data:', JSON.stringify(error.response?.data, null, 2));
     console.error('Full error:', error);
+    
+    if (error.response?.status === 401) {
+      console.log('Access token invalid (401 error) - app needs to be reinstalled');
+      // Clean up invalid token from database
+      await pool.query('DELETE FROM shops WHERE shop = $1', [shopDomain]);
+      await pool.query('DELETE FROM charges WHERE shop = $1', [shopDomain]);
+      console.log('Cleaned up invalid shop data from database');
+      return res.status(401).json({ 
+        error: 'Invalid access token', 
+        message: 'The app needs to be reinstalled. Please reinstall the app from your Shopify admin.',
+        action: 'reinstall_required'
+      });
+    }
     
     if (error.response?.status === 404) {
       console.log('Order not found (404 error)');
