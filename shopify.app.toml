@@ -1,9 +1,9 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 name = "order-tracking"
-client_id = "${SHOPIFY_API_KEY}"
+client_id = "2d20e8e11bb0f54c316c6394ad8488d1"
 
-application_url = "https://shopify-tracking-backend-new.onrender.com/"
+application_url = "https://shopify-tracking-backend-new.netlify.app/"
 embedded = true
 
 [access_scopes]
@@ -19,6 +19,22 @@ redirect_urls = [
 [webhooks]
 api_version = "2023-10"
 
+[[webhooks.subscriptions]]
+topics = ["app/uninstalled"]
+uri = "/webhooks/app/uninstalled"
+
+[[webhooks.subscriptions]]
+topics = ["customers/data_request"]
+uri = "/webhooks/customers/data_request"
+
+[[webhooks.subscriptions]]
+topics = ["customers/redact"]
+uri = "/webhooks/customers/redact"
+
+[[webhooks.subscriptions]]
+topics = ["shop/redact"]
+uri = "/webhooks/shop/redact"
+
 [pos]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#pos
 embedded = false
@@ -27,5 +43,5 @@ embedded = false
 
 [build]
 automatically_update_urls_on_dev = true
-dev_store_url = "your-dev-store.myshopify.com"
+dev_store_url = "https://iwanthisproduct.myshopify.com/"
 include_config_on_deploy = true
