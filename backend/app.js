@@ -534,7 +534,7 @@ app.get('/billing/subscribe', (req, res, next) => {
         name: 'Monthly Plan',
         price: 15.00,
         trial_days: 3,
-        return_url: `${process.env.FRONTEND_URL}/billing/callback`,
+        return_url: `${process.env.BACKEND_URL || 'https://order-tracking-pro.onrender.com'}/billing/callback?shop=${shop}&type=recurring`,
         test: process.env.NODE_ENV !== 'production'
       }
     };
@@ -653,25 +653,24 @@ app.get('/billing/lifetime', (req, res, next) => {
     const accessToken = shopResult.rows[0].access_token;
     console.log(`[BILLING] Access token retrieved for shop: ${shop}`);
     
-    // Create recurring charge via Shopify Billing API
-    const backendUrl = process.env.BACKEND_URL.endsWith('/') ? process.env.BACKEND_URL.slice(0, -1) : process.env.BACKEND_URL;
-    const returnUrl = `${backendUrl}/billing/callback?shop=${shop}&type=recurring`;
+    // Create one-time application charge via Shopify Billing API
+    const backendUrl = process.env.BACKEND_URL || 'https://order-tracking-pro.onrender.com';
+    const returnUrl = `${backendUrl}/billing/callback?shop=${shop}&type=lifetime`;
     const chargeData = {
-      recurring_application_charge: {
-        name: 'Order Tracking Pro - Monthly',
-        price: 15.00,
-        trial_days: 3,
-        test: true, // Set to false in production
+      application_charge: {
+        name: 'Order Tracking Pro - Lifetime',
+        price: 150.00,
+        test: process.env.NODE_ENV !== 'production',
         return_url: returnUrl
       }
     };
     
-    console.log(`[BILLING] Creating recurring charge with data:`, JSON.stringify(chargeData, null, 2));
+    console.log(`[BILLING] Creating application charge with data:`, JSON.stringify(chargeData, null, 2));
     console.log(`[BILLING] Return URL: ${returnUrl}`);
-    console.log(`[BILLING] Shopify API URL: https://${shop}/admin/api/2023-10/recurring_application_charges.json`);
+    console.log(`[BILLING] Shopify API URL: https://${shop}/admin/api/2023-10/application_charges.json`);
 
     const response = await axios.post(
-      `https://${shop}/admin/api/2023-10/recurring_application_charges.json`,
+      `https://${shop}/admin/api/2023-10/application_charges.json`,
       chargeData,
       {
         headers: {
@@ -681,7 +680,7 @@ app.get('/billing/lifetime', (req, res, next) => {
       }
     );
 
-    const charge = response.data.recurring_application_charge;
+    const charge = response.data.application_charge;
     console.log(`[BILLING] Shopify API response:`, JSON.stringify(charge, null, 2));
     
     // Store charge in database
