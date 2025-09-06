@@ -557,6 +557,15 @@ app.get('/billing/subscribe', (req, res, next) => {
     }
 
     console.log('Recurring charge created successfully');
+    
+    // Store charge in database
+    const chargeId = data.recurring_application_charge.id.toString();
+    await pool.query(
+      'INSERT INTO charges (shop, charge_id, type, status, amount, trial_days, created_at) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP) ON CONFLICT (shop, charge_id) DO UPDATE SET status = $4, updated_at = CURRENT_TIMESTAMP',
+      [shop, chargeId, 'recurring', 'pending', 15.00, 3]
+    );
+    console.log(`Stored recurring charge in database: ${chargeId}`);
+    
     console.log('Redirecting to confirmation URL:', data.recurring_application_charge.confirmation_url);
     
     // Handle iframe redirect for Partner dashboard access
@@ -686,8 +695,8 @@ app.get('/billing/lifetime', (req, res, next) => {
     // Store charge in database
     console.log(`[BILLING] Storing charge in database: ${charge.id}`);
     await pool.query(
-      'INSERT INTO charges (shop, charge_id, status, type, amount, trial_days) VALUES ($1, $2, $3, $4, $5, $6)',
-      [shop, charge.id.toString(), 'pending', 'recurring', 15.00, 3]
+      'INSERT INTO charges (shop, charge_id, type, status, amount, trial_days, created_at) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP) ON CONFLICT (shop, charge_id) DO UPDATE SET status = $4, updated_at = CURRENT_TIMESTAMP',
+      [shop, charge.id.toString(), 'lifetime', 'pending', 150.00, 0]
     );
     console.log(`[BILLING] Charge stored successfully`);
 
