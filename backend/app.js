@@ -480,22 +480,14 @@ app.get('/billing/free', async (req, res) => {
     
     console.log(`[BILLING] Free plan activated for shop: ${shop}`);
     
-    // Redirect back to app with success
+    // Redirect back to app with success (same as other billing endpoints)
     const redirectUrl = `https://${shop}/admin/apps/order-tracking-pro-1?billing=success&plan=free`;
-    
-    res.json({
-      success: true,
-      message: 'Free plan activated successfully',
-      plan: 'free',
-      redirect_url: redirectUrl
-    });
+    res.redirect(redirectUrl);
     
   } catch (error) {
     console.error('[BILLING] Free plan activation error:', error);
-    res.status(500).json({ 
-      error: 'Failed to activate free plan',
-      details: error.message 
-    });
+    const errorUrl = `https://${shop}/admin/apps/order-tracking-pro-1?billing=error&message=${encodeURIComponent('Failed to activate free plan')}`;
+    res.redirect(errorUrl);
   }
 });
 
