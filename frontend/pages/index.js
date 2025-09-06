@@ -33,7 +33,7 @@ function Home() {
     // App Bridge not available during SSR or standalone mode
   }
   
-  const isEmbedded = isClient && !!appBridge;
+  const isEmbedded = isClient && (!!appBridge || !!app) && typeof window !== 'undefined' && !!window.apiCall;
   
   useEffect(() => {
     setIsClient(true);
@@ -115,18 +115,24 @@ function Home() {
       
       let response;
       
-      if (isEmbedded && window.apiCall) {
-        // When embedded in Shopify Admin, use session token authentication
+      if (isEmbedded) {
         console.log('Using apiCall with session token for embedded app');
-        const fetchResponse = await window.apiCall(requestUrl);
-        const data = await fetchResponse.json();
-        response = {
-          data: data,
-          status: fetchResponse.status,
-          headers: fetchResponse.headers
-        };
+        try {
+          const fetchResponse = await window.apiCall(requestUrl);
+          if (!fetchResponse.ok) {
+            throw new Error(`HTTP ${fetchResponse.status}: ${fetchResponse.statusText}`);
+          }
+          const data = await fetchResponse.json();
+          response = {
+            data: data,
+            status: fetchResponse.status,
+            headers: fetchResponse.headers
+          };
+        } catch (sessionError) {
+          console.warn('Session token failed, falling back to axios:', sessionError);
+          response = await axios.get(requestUrl);
+        }
       } else {
-        // Use regular axios when running standalone
         console.log('Using axios for standalone app');
         response = await axios.get(requestUrl);
       }

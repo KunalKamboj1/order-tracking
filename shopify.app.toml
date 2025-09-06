@@ -27,7 +27,7 @@ uri = "/webhooks/app/uninstalled"
 # GDPR Compliance webhooks (MANDATORY for App Store)
 [[webhooks.subscriptions]]
 compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
-uri = "/webhooks/gdpr"
+uri = "https://order-tracking-pro.onrender.com/webhooks/gdpr"
 
 [pos]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#pos
