@@ -470,7 +470,7 @@ app.get('/tracking', (req, res, next) => {
         
         if (!orders || orders.length === 0) {
           console.log(`Order ${order_id} not found`);
-          return res.json({ "tracking_number": null });
+          return res.json({ "error": "Order not found. Please check and verify the order number." });
         }
         
         // Extract numeric order.id from response
