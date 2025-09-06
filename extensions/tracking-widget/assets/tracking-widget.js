@@ -75,6 +75,18 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   function displayTrackingResults(container, data) {
+    // Show the container
+    container.hidden = false;
+    container.style.display = 'block';
+    
+    // Check if we have any tracking information
+    const hasTrackingInfo = data.tracking_company || data.tracking_number || data.tracking_url;
+    
+    if (!hasTrackingInfo) {
+      showError(container, 'Order found but not dispatched yet. Tracking information will be available once your order ships.');
+      return;
+    }
+    
     let html = '<div class="tracking-widget__success">';
     html += '<h3>Tracking Information</h3>';
     
@@ -95,6 +107,9 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   function showError(container, message) {
+    // Show the container
+    container.hidden = false;
+    container.style.display = 'block';
     container.innerHTML = `<div class="tracking-widget__error">${escapeHtml(message)}</div>`;
   }
   
