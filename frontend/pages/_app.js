@@ -9,7 +9,7 @@ const createApiCall = (app) => {
   return async (url, options = {}) => {
     try {
       const sessionToken = await getSessionToken(app);
-      return fetch(url, {
+      const response = await fetch(url, {
         ...options,
         headers: {
           'Authorization': `Bearer ${sessionToken}`,
@@ -17,10 +17,30 @@ const createApiCall = (app) => {
           ...options.headers
         }
       });
+      
+      // If we get a 401 (session token error), retry without token
+      if (response.status === 401) {
+        console.log('Session token invalid, retrying without token');
+        return fetch(url, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+          }
+        });
+      }
+      
+      return response;
     } catch (error) {
       console.error('API call failed:', error);
       // Fallback to regular fetch without session token
-      return fetch(url, options);
+      return fetch(url, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers
+        }
+      });
     }
   };
 };
