@@ -309,172 +309,78 @@ app.get('/tracking', (req, res, next) => {
     }
 
     const accessToken = result.rows[0].access_token;
-    console.log('Access token found:', accessToken ? 'Yes' : 'No');
-    console.log('Access token (first 10 chars):', accessToken ? `${accessToken.substring(0, 10)}...` : 'None');
-
-    // Test access token with a simple API call first
-    try {
-      console.log('Testing access token with shop info API...');
-      const shopInfoResponse = await axios.get(`https://${shopDomain}/admin/api/2023-10/shop.json`, {
-        headers: {
-          'X-Shopify-Access-Token': accessToken
-        }
-      });
-      console.log('Access token test successful - shop name:', shopInfoResponse.data.shop?.name || 'Unknown');
-    } catch (tokenTestError) {
-      console.error('Access token test failed:', tokenTestError.response?.status, tokenTestError.response?.data || tokenTestError.message);
-      return res.status(401).json({ error: 'Invalid or expired access token' });
-    }
-
-    let numericOrderId = order_id;
+    console.log(`[BILLING] Access token retrieved for shop: ${shop}`);
     
-    // If order_id starts with "#", resolve it to numeric ID
-    if (order_id.startsWith('#')) {
-      console.log('Resolving order name to numeric ID:', order_id);
-      
-      // Try multiple approaches to find the order
-      const orderName = order_id.substring(1); // Remove the # prefix
-      
-      // Fetch recent orders with limit and filter client-side to avoid fetching all orders
-      let orderSearchUrl = `https://${shopDomain}/admin/api/2023-10/orders.json?limit=50&status=any&fields=id,name,order_number`;
-      console.log('Making order search request:', orderSearchUrl);
-      
-      try {
-        const orderSearchResponse = await axios.get(orderSearchUrl, {
-          headers: {
-            'X-Shopify-Access-Token': accessToken
-          }
-        });
-        
-        let orders = orderSearchResponse.data.orders || [];
-        console.log('API returned', orders.length, 'orders, filtering for:', order_id);
-        
-        // Filter orders client-side to find exact match
-        let matchedOrder = null;
-        
-        // Try to match by name field (with or without #)
-        matchedOrder = orders.find(order => 
-          order.name === order_id || 
-          order.name === orderName ||
-          order.order_number === orderName ||
-          order.order_number === parseInt(orderName)
-        );
-        
-        console.log('Matched order:', matchedOrder ? `ID: ${matchedOrder.id}, Name: ${matchedOrder.name}` : 'None');
-        
-        if (!matchedOrder) {
-          // If not found in first 50, try with different status filters
-          console.log('Order not found in recent orders, trying with all statuses...');
-          orderSearchUrl = `https://${shopDomain}/admin/api/2023-10/orders.json?limit=100&fields=id,name,order_number`;
-          
-          const orderSearchResponse2 = await axios.get(orderSearchUrl, {
-            headers: {
-              'X-Shopify-Access-Token': accessToken
-            }
-          });
-          
-          orders = orderSearchResponse2.data.orders || [];
-          console.log('Second API call returned', orders.length, 'orders');
-          
-          matchedOrder = orders.find(order => 
-            order.name === order_id || 
-            order.name === orderName ||
-            order.order_number === orderName ||
-            order.order_number === parseInt(orderName)
-          );
-        }
-        
-        const finalOrders = matchedOrder ? [matchedOrder] : [];
-        console.log('Final filtered result:', finalOrders.length, 'orders');
-        
-        if (finalOrders.length === 0) {
-          console.log('No order found with name:', order_id);
-          return res.json({
-            tracking_number: null,
-            tracking_company: null,
-            tracking_url: null,
-            message: 'Order not found'
-          });
-        }
-        
-        numericOrderId = finalOrders[0].id;
-        console.log('Resolved order name', order_id, 'to numeric ID:', numericOrderId);
-        console.log('Matched order details:', finalOrders[0]);
-        
-      } catch (searchError) {
-        console.error('Error searching for order by name:', searchError.message);
-        return res.json({
-          tracking_number: null,
-          tracking_company: null,
-          tracking_url: null,
-          message: 'Error searching for order'
-        });
+    // Create one-time lifetime charge via Shopify Billing API
+    const backendUrl = process.env.BACKEND_URL.endsWith('/') ? process.env.BACKEND_URL.slice(0, -1) : process.env.BACKEND_URL;
+    const returnUrl = `${backendUrl}/billing/callback?shop=${shop}&type=lifetime`;
+    const chargeData = {
+      application_charge: {
+        name: 'Order Tracking Pro - Lifetime',
+        price: 150.00,
+        test: true, // Set to false in production
+        return_url: returnUrl
       }
-    }
-    
-    console.log('Using numeric order ID:', numericOrderId);
-
-    // Call Shopify Admin API to get fulfillments
-    const apiUrl = `https://${shopDomain}/admin/api/2023-10/orders/${numericOrderId}/fulfillments.json`;
-    console.log('Making Shopify API request to:', apiUrl);
-    console.log('Request headers:', {
-      'X-Shopify-Access-Token': accessToken ? `${accessToken.substring(0, 10)}...` : 'None'
-    });
-    
-    const fulfillmentsResponse = await axios.get(apiUrl, {
-      headers: {
-        'X-Shopify-Access-Token': accessToken
-      }
-    });
-    
-    console.log('Shopify API response status:', fulfillmentsResponse.status);
-    console.log('Shopify API response data:', JSON.stringify(fulfillmentsResponse.data, null, 2));
-
-    const fulfillments = fulfillmentsResponse.data.fulfillments;
-    console.log('Fulfillment count returned:', fulfillments ? fulfillments.length : 0);
-    
-    if (!fulfillments || fulfillments.length === 0) {
-      console.log('No fulfillments found, returning null values');
-      return res.json({
-        tracking_number: null,
-        tracking_company: null,
-        tracking_url: null,
-        message: 'No tracking info found for this order'
-      });
-    }
-
-    // Get the first fulfillment with tracking info
-    const fulfillment = fulfillments.find(f => f.tracking_number) || fulfillments[0];
-    console.log('Selected fulfillment:', JSON.stringify(fulfillment, null, 2));
-    
-    const responseData = {
-      tracking_number: fulfillment.tracking_number || null,
-      tracking_company: fulfillment.tracking_company || null,
-      tracking_url: fulfillment.tracking_url || null
     };
     
-    console.log('Sending response:', JSON.stringify(responseData, null, 2));
-    res.json(responseData);
+    console.log(`[BILLING] Creating lifetime charge with data:`, JSON.stringify(chargeData, null, 2));
+    console.log(`[BILLING] Return URL: ${returnUrl}`);
+    console.log(`[BILLING] Shopify API URL: https://${shop}/admin/api/2023-10/application_charges.json`);
 
+    const response = await axios.post(
+      `https://${shop}/admin/api/2023-10/application_charges.json`,
+      chargeData,
+      {
+        headers: {
+          'X-Shopify-Access-Token': accessToken,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    const charge = response.data.application_charge;
+    console.log(`[BILLING] Shopify API response:`, JSON.stringify(charge, null, 2));
+    
+    // Store charge in database
+    console.log(`[BILLING] Storing charge in database: ${charge.id}`);
+    await pool.query(
+      'INSERT INTO charges (shop, charge_id, status, type, amount, trial_days) VALUES ($1, $2, $3, $4, $5, $6)',
+      [shop, charge.id.toString(), 'pending', 'lifetime', 150.00, 0]
+    );
+    console.log(`[BILLING] Charge stored successfully`);
+
+    // Redirect to Shopify's confirmation URL (break out of iframe)
+    console.log(`[BILLING] Redirecting to confirmation URL: ${charge.confirmation_url}`);
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Redirecting to Shopify...</title>
+        </head>
+        <body>
+          <script>
+            if (window.top !== window.self) {
+              // We're in an iframe, redirect the parent window
+              window.top.location.href = "${charge.confirmation_url}";
+            } else {
+              // We're not in an iframe, redirect normally
+              window.location.href = "${charge.confirmation_url}";
+            }
+          </script>
+          <p>Redirecting to Shopify billing confirmation...</p>
+        </body>
+      </html>
+    `);
+    
   } catch (error) {
-    console.log('=== ERROR IN TRACKING ENDPOINT ===');
-    console.error('Error message:', error.message);
-    console.error('Error response status:', error.response?.status);
-    console.error('Error response data:', JSON.stringify(error.response?.data, null, 2));
-    console.error('Full error:', error);
-    
-    if (error.response?.status === 401) {
-      console.log('Access token invalid (401 error)');
-      return res.status(401).json({ error: 'Invalid or expired access token' });
-    }
-    
-    if (error.response?.status === 404) {
-      console.log('Order not found (404 error)');
-      return res.status(404).json({ error: 'Order not found' });
-    }
-    
-    console.log('Returning 500 error');
-    res.status(500).json({ error: 'Failed to fetch tracking information' });
+    console.error('[BILLING] ERROR creating recurring charge:', error);
+    console.error('[BILLING] Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      headers: error.response?.headers
+    });
+    res.status(500).json({ error: 'Failed to create subscription', details: error.message });
   }
 });
 
@@ -510,24 +416,141 @@ app.post('/install-theme-block', async (req, res) => {
 // Billing Routes
 
 // Create recurring subscription charge ($15/month with 3-day trial)
-app.get('/billing/subscribe', async (req, res) => {
-  const { shop } = req.query;
-  console.log(`[BILLING] Starting recurring subscription for shop: ${shop}`);
-  console.log(`[BILLING] Request query params:`, req.query);
-  console.log(`[BILLING] BACKEND_URL: ${process.env.BACKEND_URL}`);
-  
-  if (!shop) {
-    console.log(`[BILLING] ERROR: Missing shop parameter`);
-    return res.status(400).json({ error: 'Shop parameter is required' });
-  }
-
+// Billing subscription endpoint with JWT verification
+app.get('/billing/subscribe', verifySessionToken, async (req, res) => {
   try {
+    // Extract shop from both JWT token and query parameters
+    const shopFromJWT = req.shop; // Set by verifySessionToken middleware
+    const shopFromQuery = req.query.shop;
+    
+    console.log('=== BILLING SUBSCRIBE DEBUG ===');
+    console.log('Shop from JWT token:', shopFromJWT);
+    console.log('Shop from query params:', shopFromQuery);
+    console.log('Request headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Request query:', JSON.stringify(req.query, null, 2));
+    
+    // Use shop from JWT token if available, otherwise fall back to query parameter
+    const shop = shopFromJWT || shopFromQuery;
+    
+    console.log('Final shop parameter used:', shop);
+    
+    if (!shop) {
+      console.log('ERROR: No shop parameter found in JWT token or query params');
+      return res.status(400).json({ error: 'Shop parameter is required' });
+    }
+
+    console.log(`Processing billing subscription for shop: ${shop}`);
+
+    // Get access token from database
+    console.log('Fetching access token from database...');
+    const result = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shop]);
+    
+    console.log('Database query result:', {
+      rowCount: result.rowCount,
+      hasRows: result.rows.length > 0
+    });
+    
+    if (result.rows.length === 0) {
+      console.log('ERROR: Shop not found in database');
+      
+      // Show available shops for debugging
+      const allShops = await pool.query('SELECT shop FROM shops ORDER BY shop');
+      console.log('Available shops in database:', allShops.rows.map(row => row.shop));
+      
+      return res.status(404).json({ 
+        error: 'Shop not found',
+        requestedShop: shop,
+        availableShops: allShops.rows.map(row => row.shop)
+      });
+    }
+
+    const accessToken = result.rows[0].access_token;
+    console.log('Access token retrieved successfully');
+
+    // Create recurring charge
+    console.log('Creating recurring charge via Shopify API...');
+    const charge = {
+      recurring_application_charge: {
+        name: 'Premium Plan',
+        price: 9.99,
+        return_url: `${process.env.FRONTEND_URL}/billing/callback`,
+        test: process.env.NODE_ENV !== 'production'
+      }
+    };
+
+    const response = await fetch(`https://${shop}/admin/api/2023-10/recurring_application_charges.json`, {
+      method: 'POST',
+      headers: {
+        'X-Shopify-Access-Token': accessToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(charge)
+    });
+
+    const data = await response.json();
+    console.log('Shopify API response:', { status: response.status, ok: response.ok });
+    
+    if (!response.ok) {
+      console.log('ERROR: Shopify API error:', data);
+      throw new Error(`Shopify API error: ${response.status}`);
+    }
+
+    console.log('Recurring charge created successfully');
+    res.json(data);
+  } catch (error) {
+    console.error('Billing subscription error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Create lifetime charge ($150 one-time with 3-day trial)
+// Create lifetime charge ($150 one-time with 3-day trial)
+app.get('/billing/lifetime', verifySessionToken, async (req, res) => {
+  try {
+    // Extract shop from both JWT token and query parameters
+    const shopFromJWT = req.shop; // Set by verifySessionToken middleware
+    const shopFromQuery = req.query.shop;
+    
+    console.log('=== BILLING LIFETIME DEBUG ===');
+    console.log('Shop from JWT token:', shopFromJWT);
+    console.log('Shop from query params:', shopFromQuery);
+    console.log('Request headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Request query:', JSON.stringify(req.query, null, 2));
+    
+    // Use shop from JWT token if available, otherwise fall back to query parameter
+    const shop = shopFromJWT || shopFromQuery;
+    
+    console.log('Final shop parameter used:', shop);
+    console.log(`[BILLING] Starting lifetime payment for shop: ${shop}`);
+    console.log(`[BILLING] BACKEND_URL: ${process.env.BACKEND_URL}`);
+    
+    if (!shop) {
+      console.log('ERROR: No shop parameter found in JWT token or query params');
+      console.log(`[BILLING] ERROR: Missing shop parameter`);
+      return res.status(400).json({ error: 'Shop parameter is required' });
+    }
+
     // Get shop's access token
     console.log(`[BILLING] Fetching access token for shop: ${shop}`);
     const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shop]);
+    
+    console.log('Database query result:', {
+      rowCount: shopResult.rowCount,
+      hasRows: shopResult.rows.length > 0
+    });
+    
     if (shopResult.rows.length === 0) {
       console.log(`[BILLING] ERROR: Shop not found in database: ${shop}`);
-      return res.status(404).json({ error: 'Shop not found' });
+      
+      // Show available shops for debugging
+      const allShops = await pool.query('SELECT shop FROM shops ORDER BY shop');
+      console.log('Available shops in database:', allShops.rows.map(row => row.shop));
+      
+      return res.status(404).json({ 
+        error: 'Shop not found',
+        requestedShop: shop,
+        availableShops: allShops.rows.map(row => row.shop)
+      });
     }
 
     const accessToken = shopResult.rows[0].access_token;
@@ -596,103 +619,6 @@ app.get('/billing/subscribe', async (req, res) => {
     `);
     
   } catch (error) {
-    console.error('[BILLING] ERROR creating recurring charge:', error);
-    console.error('[BILLING] Error details:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      headers: error.response?.headers
-    });
-    res.status(500).json({ error: 'Failed to create subscription' });
-  }
-});
-
-// Create lifetime charge ($150 one-time with 3-day trial)
-app.get('/billing/lifetime', async (req, res) => {
-  const { shop } = req.query;
-  console.log(`[BILLING] Starting lifetime payment for shop: ${shop}`);
-  console.log(`[BILLING] Request query params:`, req.query);
-  console.log(`[BILLING] BACKEND_URL: ${process.env.BACKEND_URL}`);
-  
-  if (!shop) {
-    console.log(`[BILLING] ERROR: Missing shop parameter`);
-    return res.status(400).json({ error: 'Shop parameter is required' });
-  }
-
-  try {
-    // Get shop's access token
-    console.log(`[BILLING] Fetching access token for shop: ${shop}`);
-    const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shop]);
-    if (shopResult.rows.length === 0) {
-      console.log(`[BILLING] ERROR: Shop not found in database: ${shop}`);
-      return res.status(404).json({ error: 'Shop not found' });
-    }
-
-    const accessToken = shopResult.rows[0].access_token;
-    console.log(`[BILLING] Access token retrieved for shop: ${shop}`);
-    
-    // Create one-time charge via Shopify Billing API
-    const backendUrl = process.env.BACKEND_URL.endsWith('/') ? process.env.BACKEND_URL.slice(0, -1) : process.env.BACKEND_URL;
-    const returnUrl = `${backendUrl}/billing/callback?shop=${shop}&type=lifetime`;
-    const chargeData = {
-      application_charge: {
-        name: 'Order Tracking Pro - Lifetime',
-        price: 150.00,
-        test: true, // Set to false in production
-        return_url: returnUrl
-      }
-    };
-    
-    console.log(`[BILLING] Creating lifetime charge with data:`, JSON.stringify(chargeData, null, 2));
-    console.log(`[BILLING] Return URL: ${returnUrl}`);
-    console.log(`[BILLING] Shopify API URL: https://${shop}/admin/api/2023-10/application_charges.json`);
-
-    const response = await axios.post(
-      `https://${shop}/admin/api/2023-10/application_charges.json`,
-      chargeData,
-      {
-        headers: {
-          'X-Shopify-Access-Token': accessToken,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    const charge = response.data.application_charge;
-    console.log(`[BILLING] Shopify API response:`, JSON.stringify(charge, null, 2));
-    
-    // Store charge in database
-    console.log(`[BILLING] Storing charge in database: ${charge.id}`);
-    await pool.query(
-      'INSERT INTO charges (shop, charge_id, status, type, amount, trial_days) VALUES ($1, $2, $3, $4, $5, $6)',
-      [shop, charge.id.toString(), 'pending', 'lifetime', 150.00, 3]
-    );
-    console.log(`[BILLING] Charge stored successfully`);
-
-    // Redirect to Shopify's confirmation URL (break out of iframe)
-    console.log(`[BILLING] Redirecting to confirmation URL: ${charge.confirmation_url}`);
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Redirecting to Shopify...</title>
-        </head>
-        <body>
-          <script>
-            if (window.top !== window.self) {
-              // We're in an iframe, redirect the parent window
-              window.top.location.href = "${charge.confirmation_url}";
-            } else {
-              // We're not in an iframe, redirect normally
-              window.location.href = "${charge.confirmation_url}";
-            }
-          </script>
-          <p>Redirecting to Shopify billing confirmation...</p>
-        </body>
-      </html>
-    `);
-    
-  } catch (error) {
     console.error('[BILLING] ERROR creating lifetime charge:', error);
     console.error('[BILLING] Error details:', {
       message: error.message,
@@ -700,9 +626,11 @@ app.get('/billing/lifetime', async (req, res) => {
       status: error.response?.status,
       headers: error.response?.headers
     });
-    res.status(500).json({ error: 'Failed to create lifetime payment' });
+    res.status(500).json({ error: 'Failed to create lifetime payment', details: error.message });
   }
 });
+
+
 
 // Handle billing callback after merchant approval
 app.get('/billing/callback', async (req, res) => {
