@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
     .catch(error => {
       console.error('Tracking error:', error);
       if (error.message === 'Order not found') {
-        showError(resultsContainer, 'No tracking information available for this order number yet.');
+        showError(resultsContainer, 'Order not found. Please check the order number and try again.');
       } else {
         showError(resultsContainer, 'Unable to retrieve tracking information. Please try again later.');
       }
