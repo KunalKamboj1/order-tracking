@@ -14,6 +14,7 @@ import {
 } from '@shopify/polaris';
 import axios from 'axios';
 import { useAppBridge } from '@shopify/app-bridge-react';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 export default function Home() {
   const [orderId, setOrderId] = useState('');
@@ -281,3 +282,14 @@ export default function Home() {
     </Page>
   );
 }
+
+// Wrap the Home component with ErrorBoundary
+function HomeWithErrorBoundary() {
+  return (
+    <ErrorBoundary>
+      <Home />
+    </ErrorBoundary>
+  );
+}
+
+export { HomeWithErrorBoundary as default };

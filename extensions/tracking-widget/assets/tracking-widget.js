@@ -38,7 +38,8 @@ document.addEventListener('DOMContentLoaded', function() {
     resultsContainer.innerHTML = '<div class="tracking-widget__loading">Searching for your order...</div>';
     
     // API endpoint - using the deployed backend on Render
-    const apiUrl = `https://shopify-tracking-backend-new.onrender.com/tracking?order_id=${encodeURIComponent(orderNumber)}&shop=${encodeURIComponent(shopDomain)}`;
+    const backendUrl = window.TRACKING_BACKEND_URL || 'https://shopify-tracking-backend-new.onrender.com';
+        const apiUrl = `${backendUrl}/tracking?order_id=${encodeURIComponent(orderNumber)}&shop=${encodeURIComponent(shopDomain)}`;
     
     fetch(apiUrl, {
       method: 'GET',

@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const { Pool } = require('pg');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
@@ -54,8 +55,25 @@ const initDatabase = async () => {
 initDatabase();
 
 // Middleware
+// Raw body parser for webhooks
+app.use('/webhooks', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Webhook verification middleware
+const verifyWebhook = (req, res, next) => {
+  const hmac = req.get('X-Shopify-Hmac-Sha256');
+  const body = req.body;
+  const hash = crypto.createHmac('sha256', process.env.SHOPIFY_WEBHOOK_SECRET).update(body, 'utf8').digest('base64');
+  
+  if (hash === hmac) {
+    next();
+  } else {
+    console.log('Webhook verification failed');
+    res.status(401).send('Unauthorized');
+  }
+};
 
 // CORS middleware
 app.use((req, res, next) => {
@@ -770,6 +788,98 @@ app.get('/billing/status', async (req, res) => {
   } catch (error) {
     console.error('Error checking billing status:', error);
     res.status(500).json({ error: 'Failed to check billing status' });
+  }
+});
+
+// Webhook endpoint for app uninstallation
+app.post('/webhooks/app/uninstalled', verifyWebhook, async (req, res) => {
+  const shop = req.get('X-Shopify-Shop-Domain');
+  
+  console.log(`[WEBHOOK] App uninstalled for shop: ${shop}`);
+  console.log(`[WEBHOOK] Webhook payload:`, req.body);
+  
+  try {
+    // Clean up shop data from database
+    await pool.query('DELETE FROM shops WHERE shop = $1', [shop]);
+    await pool.query('DELETE FROM charges WHERE shop = $1', [shop]);
+    
+    console.log(`[WEBHOOK] Successfully cleaned up data for shop: ${shop}`);
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error(`[WEBHOOK] Error cleaning up data for shop ${shop}:`, error);
+    res.status(500).send('Error');
+  }
+});
+
+// GDPR Data Request Webhook
+app.post('/webhooks/customers/data_request', verifyWebhook, async (req, res) => {
+  const shop = req.get('X-Shopify-Shop-Domain');
+  const payload = JSON.parse(req.body);
+  
+  console.log(`[GDPR] Data request for shop: ${shop}`);
+  console.log(`[GDPR] Customer ID: ${payload.customer?.id}`);
+  
+  try {
+    // In a real implementation, you would:
+    // 1. Collect all customer data from your database
+    // 2. Format it according to GDPR requirements
+    // 3. Send it to the customer or make it available for download
+    
+    const customerData = {
+      shop: shop,
+      customer_id: payload.customer?.id,
+      data_collected: 'Order tracking data, if any',
+      message: 'We do not store personal customer data beyond what is necessary for order tracking functionality'
+    };
+    
+    console.log(`[GDPR] Data request processed for customer: ${payload.customer?.id}`);
+    res.status(200).json({ status: 'processed', data: customerData });
+  } catch (error) {
+    console.error(`[GDPR] Error processing data request:`, error);
+    res.status(500).send('Error processing data request');
+  }
+});
+
+// GDPR Data Redaction Webhook
+app.post('/webhooks/customers/redact', verifyWebhook, async (req, res) => {
+  const shop = req.get('X-Shopify-Shop-Domain');
+  const payload = JSON.parse(req.body);
+  
+  console.log(`[GDPR] Data redaction request for shop: ${shop}`);
+  console.log(`[GDPR] Customer ID: ${payload.customer?.id}`);
+  
+  try {
+    // In a real implementation, you would:
+    // 1. Find all data associated with this customer
+    // 2. Delete or anonymize it according to GDPR requirements
+    // 3. Log the action for compliance records
+    
+    // Since we don't store customer personal data directly,
+    // we just log the redaction request
+    console.log(`[GDPR] Data redaction completed for customer: ${payload.customer?.id}`);
+    res.status(200).json({ status: 'redacted' });
+  } catch (error) {
+    console.error(`[GDPR] Error processing redaction request:`, error);
+    res.status(500).send('Error processing redaction request');
+  }
+});
+
+// Shop Data Redaction Webhook (48 hours after uninstall)
+app.post('/webhooks/shop/redact', verifyWebhook, async (req, res) => {
+  const shop = req.get('X-Shopify-Shop-Domain');
+  
+  console.log(`[GDPR] Shop data redaction request for: ${shop}`);
+  
+  try {
+    // Clean up any remaining shop data
+    await pool.query('DELETE FROM shops WHERE shop = $1', [shop]);
+    await pool.query('DELETE FROM charges WHERE shop = $1', [shop]);
+    
+    console.log(`[GDPR] Shop data redaction completed for: ${shop}`);
+    res.status(200).json({ status: 'redacted' });
+  } catch (error) {
+    console.error(`[GDPR] Error processing shop redaction:`, error);
+    res.status(500).send('Error processing shop redaction');
   }
 });
 

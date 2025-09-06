@@ -11,8 +11,9 @@ import {
   InlineStack,
 } from '@shopify/polaris';
 import { useAppBridge } from '@shopify/app-bridge-react';
+import ErrorBoundary from '../components/ErrorBoundary';
 
-export default function PricingPage() {
+function PricingPage() {
   const [loading, setLoading] = useState({ monthly: false, lifetime: false });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -252,3 +253,14 @@ export default function PricingPage() {
     </Page>
   );
 }
+
+// Wrap the PricingPage component with ErrorBoundary
+function PricingPageWithErrorBoundary() {
+  return (
+    <ErrorBoundary>
+      <PricingPage />
+    </ErrorBoundary>
+  );
+}
+
+export { PricingPageWithErrorBoundary as default };
