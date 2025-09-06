@@ -873,6 +873,19 @@ app.get('/billing/status', (req, res, next) => {
   }
 });
 
+// Test endpoint to verify webhook connectivity
+app.get('/webhooks/test', (req, res) => {
+  console.log('[WEBHOOK TEST] Test endpoint accessed at:', new Date().toISOString());
+  console.log('[WEBHOOK TEST] Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('[WEBHOOK TEST] Query params:', JSON.stringify(req.query, null, 2));
+  res.status(200).json({ 
+    status: 'success', 
+    message: 'Webhook endpoint is accessible',
+    timestamp: new Date().toISOString(),
+    server: 'order-tracking-pro'
+  });
+});
+
 // Webhook endpoint for app uninstallation
 app.post('/webhooks/app/uninstalled', verifyWebhook, async (req, res) => {
   console.log('\n=== APP UNINSTALL WEBHOOK RECEIVED ===');
