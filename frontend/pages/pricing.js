@@ -14,7 +14,7 @@ import { useAppBridge } from '@shopify/app-bridge-react';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 function PricingPage() {
-  const [loading, setLoading] = useState({ monthly: false, lifetime: false });
+  const [loading, setLoading] = useState({ free: false, monthly: false, lifetime: false });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [shop, setShop] = useState('');
@@ -38,8 +38,13 @@ function PricingPage() {
 
     // Check for billing status from URL
     const billingStatus = urlParams.get('billing');
+    const planType = urlParams.get('plan');
     if (billingStatus === 'success') {
-      setSuccess('Payment successful! You can now use all features.');
+      if (planType === 'free') {
+        setSuccess('Free plan activated! You can now use basic features.');
+      } else {
+        setSuccess('Payment successful! You can now use all features.');
+      }
     } else if (billingStatus === 'declined') {
       setError('Payment was declined. Please try again.');
     } else if (billingStatus === 'error') {
@@ -58,7 +63,15 @@ function PricingPage() {
     setSuccess('');
 
     try {
-      const endpoint = planType === 'monthly' ? 'subscribe' : 'lifetime';
+      let endpoint;
+      if (planType === 'free') {
+        endpoint = 'free';
+      } else if (planType === 'monthly') {
+        endpoint = 'subscribe';
+      } else {
+        endpoint = 'lifetime';
+      }
+      
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
       
       // Redirect to backend billing endpoint
@@ -92,7 +105,66 @@ function PricingPage() {
           </div>
         )}
 
-        <div className="grid md:grid-cols-2 gap-8 mt-8">
+        <div className="grid md:grid-cols-3 gap-8 mt-8">
+          {/* Free Plan */}
+          <div className="pricing-card">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-500 rounded-full mb-4">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Free Plan</h3>
+              <div className="text-4xl font-bold text-gray-600 mb-2">
+                $0<span className="text-lg text-gray-600">/forever</span>
+              </div>
+              <p className="text-gray-600">Perfect for development stores</p>
+            </div>
+
+            <div className="space-y-4 mb-8">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-green-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                <span className="text-gray-700">Basic order tracking</span>
+              </div>
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-green-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                <span className="text-gray-700">Up to 10 orders/month</span>
+              </div>
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-green-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                <span className="text-gray-700">Development store friendly</span>
+              </div>
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-green-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                <span className="text-gray-700">No billing required</span>
+              </div>
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-green-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                <span className="text-gray-700">Community support</span>
+              </div>
+            </div>
+
+            <Button
+              size="large"
+              fullWidth
+              loading={loading.free}
+              onClick={() => handleSubscribe('free')}
+              disabled={loading.monthly || loading.lifetime}
+            >
+              Get Started Free
+            </Button>
+          </div>
+
           {/* Monthly Plan */}
           <div className="pricing-card">
             <div className="text-center mb-6">

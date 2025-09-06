@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS charges (
   shop VARCHAR(255) NOT NULL,
   charge_id VARCHAR(255) UNIQUE NOT NULL,
   status VARCHAR(50) NOT NULL DEFAULT 'pending',
-  type VARCHAR(20) NOT NULL CHECK (type IN ('recurring', 'lifetime')),
+  type VARCHAR(20) NOT NULL CHECK (type IN ('recurring', 'lifetime', 'free')),
   amount DECIMAL(10,2) NOT NULL,
   currency VARCHAR(3) DEFAULT 'USD',
   trial_days INTEGER DEFAULT 0,

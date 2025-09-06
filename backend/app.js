@@ -461,6 +461,44 @@ app.post('/install-theme-block', async (req, res) => {
 
 // Billing Routes
 
+// Free plan endpoint - no billing required
+app.get('/billing/free', async (req, res) => {
+  try {
+    const shop = req.query.shop;
+    
+    if (!shop) {
+      return res.status(400).json({ error: 'Shop parameter is required' });
+    }
+
+    console.log(`[BILLING] Activating free plan for shop: ${shop}`);
+    
+    // Store free plan in database
+    await pool.query(
+      'INSERT INTO charges (shop, charge_id, type, status, amount, trial_days, created_at) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP) ON CONFLICT (charge_id) DO UPDATE SET status = $4, updated_at = CURRENT_TIMESTAMP',
+      [shop, `free_${shop}_${Date.now()}`, 'free', 'active', 0.00, 0]
+    );
+    
+    console.log(`[BILLING] Free plan activated for shop: ${shop}`);
+    
+    // Redirect back to app with success
+    const redirectUrl = `https://${shop}/admin/apps/order-tracking-pro-1?billing=success&plan=free`;
+    
+    res.json({
+      success: true,
+      message: 'Free plan activated successfully',
+      plan: 'free',
+      redirect_url: redirectUrl
+    });
+    
+  } catch (error) {
+    console.error('[BILLING] Free plan activation error:', error);
+    res.status(500).json({ 
+      error: 'Failed to activate free plan',
+      details: error.message 
+    });
+  }
+});
+
 // Create recurring subscription charge ($15/month with 3-day trial)
 // Billing subscription endpoint with conditional JWT verification
 app.get('/billing/subscribe', (req, res, next) => {
