@@ -535,7 +535,7 @@ app.get('/billing/subscribe', (req, res, next) => {
         price: 15.00,
         trial_days: 3,
         return_url: `${process.env.BACKEND_URL || 'https://order-tracking-pro.onrender.com'}/billing/callback?shop=${shop}&type=recurring`,
-        test: process.env.NODE_ENV !== 'production'
+        test: false
       }
     };
 
@@ -660,7 +660,7 @@ app.get('/billing/lifetime', (req, res, next) => {
       application_charge: {
         name: 'Order Tracking Pro - Lifetime',
         price: 150.00,
-        test: process.env.NODE_ENV !== 'production',
+        test: false,
         return_url: returnUrl
       }
     };
