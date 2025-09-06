@@ -385,15 +385,85 @@ app.get('/tracking', (req, res, next) => {
     
     console.log(`[TRACKING] Shop has active billing. Proceeding with order tracking for order: ${order_id}`);
     
-    // TODO: Add actual order tracking logic here
-    // For now, return a simple success response
-    res.json({
-      success: true,
-      message: 'Order tracking accessed successfully',
-      shop: shop,
-      order_id: order_id,
-      status: 'active'
-    });
+    // Fetch order details from Shopify
+    try {
+      // Remove # from order_id if present
+      const cleanOrderId = order_id.replace('#', '');
+      
+      console.log(`[TRACKING] Fetching order details for order: ${cleanOrderId}`);
+      
+      const orderResponse = await axios.get(
+        `https://${shop}/admin/api/2023-10/orders/${cleanOrderId}.json`,
+        {
+          headers: {
+            'X-Shopify-Access-Token': accessToken,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      const order = orderResponse.data.order;
+      console.log(`[TRACKING] Order found: ${order.name} - Status: ${order.fulfillment_status || 'unfulfilled'}`);
+      
+      // Extract tracking information
+      const trackingInfo = {
+        order_number: order.name,
+        order_id: order.id,
+        status: order.fulfillment_status || 'unfulfilled',
+        financial_status: order.financial_status,
+        created_at: order.created_at,
+        updated_at: order.updated_at,
+        total_price: order.total_price,
+        currency: order.currency,
+        customer: {
+          email: order.email,
+          first_name: order.customer?.first_name,
+          last_name: order.customer?.last_name
+        },
+        shipping_address: order.shipping_address,
+        fulfillments: order.fulfillments?.map(f => ({
+          id: f.id,
+          status: f.status,
+          tracking_company: f.tracking_company,
+          tracking_number: f.tracking_number,
+          tracking_url: f.tracking_url,
+          created_at: f.created_at,
+          updated_at: f.updated_at
+        })) || [],
+        line_items: order.line_items?.map(item => ({
+          id: item.id,
+          title: item.title,
+          quantity: item.quantity,
+          price: item.price,
+          fulfillment_status: item.fulfillment_status
+        })) || []
+      };
+      
+      console.log(`[TRACKING] Returning tracking info for order: ${order.name}`);
+      
+      res.json({
+        success: true,
+        message: 'Order tracking retrieved successfully',
+        tracking: trackingInfo
+      });
+      
+    } catch (orderError) {
+      console.error(`[TRACKING] Error fetching order ${order_id}:`, orderError.message);
+      
+      if (orderError.response?.status === 404) {
+        return res.status(404).json({
+          success: false,
+          error: 'Order not found',
+          message: `Order ${order_id} was not found in your store`
+        });
+      }
+      
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch order details',
+        message: 'Unable to retrieve tracking information at this time'
+      });
+    }
     
   } catch (error) {
     console.error('[BILLING] ERROR creating recurring charge:', error);
