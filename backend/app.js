@@ -1120,6 +1120,7 @@ app.get('/health', (req, res) => {
     environment: {
       NODE_ENV: process.env.NODE_ENV,
       hasApiKey: !!process.env.SHOPIFY_API_KEY,
+      hasWebhookSecret: !!process.env.SHOPIFY_WEBHOOK_SECRET,
       host: process.env.HOST,
       port: process.env.PORT
     }
