@@ -110,8 +110,7 @@ export default function PrivacyPolicy() {
             For privacy-related questions or requests, contact us at:
           </Text>
           <Text as="p">
-            Email: privacy@ordertrackingapp.com<br />
-            Address: [Your Business Address]
+            Email: kunal.kamboj.52@gmail.com
           </Text>
 
           <Text variant="bodySm" as="p" tone="subdued">

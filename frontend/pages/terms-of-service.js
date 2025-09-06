@@ -109,8 +109,7 @@ export default function TermsOfService() {
             For questions about these terms, contact us at:
           </Text>
           <Text as="p">
-            Email: support@ordertrackingapp.com<br />
-            Address: [Your Business Address]
+            Email: kunal.kamboj.52@gmail.com
           </Text>
         </BlockStack>
       </Card>
