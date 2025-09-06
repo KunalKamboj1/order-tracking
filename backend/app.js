@@ -590,12 +590,12 @@ app.get('/billing/free', async (req, res) => {
     console.log(`[BILLING] Free plan activated for shop: ${shop}`);
     
     // Redirect back to app with success (same as other billing endpoints)
-    const redirectUrl = `https://${shop}/admin/apps/order-tracking-pro-1?billing=success&plan=free`;
+    const redirectUrl = `https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=success&plan=free`;
     res.redirect(redirectUrl);
     
   } catch (error) {
     console.error('[BILLING] Free plan activation error:', error);
-    const errorUrl = `https://${shop}/admin/apps/order-tracking-pro-1?billing=error&message=${encodeURIComponent('Failed to activate free plan')}`;
+    const errorUrl = `https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=error&message=${encodeURIComponent('Failed to activate free plan')}`;
     res.redirect(errorUrl);
   }
 });
