@@ -64,14 +64,43 @@ app.use(express.urlencoded({ extended: true }));
 
 // Webhook verification middleware
 const verifyWebhook = (req, res, next) => {
+  console.log('[WEBHOOK VERIFY] Starting webhook verification');
+  console.log('[WEBHOOK VERIFY] Headers:', {
+    'X-Shopify-Hmac-Sha256': req.get('X-Shopify-Hmac-Sha256'),
+    'X-Shopify-Shop-Domain': req.get('X-Shopify-Shop-Domain'),
+    'X-Shopify-Topic': req.get('X-Shopify-Topic'),
+    'Content-Type': req.get('Content-Type')
+  });
+  
   const hmac = req.get('X-Shopify-Hmac-Sha256');
   const body = req.body;
-  const hash = crypto.createHmac('sha256', process.env.SHOPIFY_WEBHOOK_SECRET).update(body, 'utf8').digest('base64');
+  const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
+  
+  console.log('[WEBHOOK VERIFY] HMAC from header:', hmac);
+  console.log('[WEBHOOK VERIFY] Body type:', typeof body);
+  console.log('[WEBHOOK VERIFY] Body length:', body ? body.length : 0);
+  console.log('[WEBHOOK VERIFY] Webhook secret configured:', webhookSecret ? 'Yes' : 'No');
+  
+  if (!webhookSecret) {
+    console.error('[WEBHOOK VERIFY] SHOPIFY_WEBHOOK_SECRET not configured!');
+    return res.status(500).send('Webhook secret not configured');
+  }
+  
+  if (!hmac) {
+    console.error('[WEBHOOK VERIFY] No HMAC header found');
+    return res.status(401).send('No HMAC header');
+  }
+  
+  const hash = crypto.createHmac('sha256', webhookSecret).update(body, 'utf8').digest('base64');
+  console.log('[WEBHOOK VERIFY] Calculated hash:', hash);
+  console.log('[WEBHOOK VERIFY] Received HMAC:', hmac);
+  console.log('[WEBHOOK VERIFY] Hashes match:', hash === hmac);
   
   if (hash === hmac) {
+    console.log('[WEBHOOK VERIFY] Verification successful');
     next();
   } else {
-    console.log('Webhook verification failed');
+    console.error('[WEBHOOK VERIFY] Verification failed - hash mismatch');
     res.status(401).send('Unauthorized');
   }
 };
@@ -846,20 +875,57 @@ app.get('/billing/status', (req, res, next) => {
 
 // Webhook endpoint for app uninstallation
 app.post('/webhooks/app/uninstalled', verifyWebhook, async (req, res) => {
-  const shop = req.get('X-Shopify-Shop-Domain');
+  console.log('\n=== APP UNINSTALL WEBHOOK RECEIVED ===');
+  console.log('[UNINSTALL] Timestamp:', new Date().toISOString());
+  console.log('[UNINSTALL] Request method:', req.method);
+  console.log('[UNINSTALL] Request URL:', req.url);
+  console.log('[UNINSTALL] Request headers:', req.headers);
+  console.log('[UNINSTALL] Raw body:', req.body);
   
-  console.log(`[WEBHOOK] App uninstalled for shop: ${shop}`);
-  console.log(`[WEBHOOK] Webhook payload:`, req.body);
+  const shop = req.get('X-Shopify-Shop-Domain');
+  const topic = req.get('X-Shopify-Topic');
+  
+  console.log(`[UNINSTALL] Shop domain: ${shop}`);
+  console.log(`[UNINSTALL] Topic: ${topic}`);
+  
+  if (!shop) {
+    console.error('[UNINSTALL] ERROR: No shop domain in headers');
+    return res.status(400).send('No shop domain');
+  }
   
   try {
-    // Clean up shop data from database
-    await pool.query('DELETE FROM shops WHERE shop = $1', [shop]);
-    await pool.query('DELETE FROM charges WHERE shop = $1', [shop]);
+    console.log(`[UNINSTALL] Starting cleanup for shop: ${shop}`);
     
-    console.log(`[WEBHOOK] Successfully cleaned up data for shop: ${shop}`);
+    // Check existing data before cleanup
+    const shopResult = await pool.query('SELECT * FROM shops WHERE shop = $1', [shop]);
+    const chargesResult = await pool.query('SELECT * FROM charges WHERE shop = $1', [shop]);
+    
+    console.log(`[UNINSTALL] Found ${shopResult.rows.length} shop records`);
+    console.log(`[UNINSTALL] Found ${chargesResult.rows.length} charge records`);
+    
+    if (shopResult.rows.length > 0) {
+      console.log('[UNINSTALL] Shop data:', shopResult.rows[0]);
+    }
+    
+    if (chargesResult.rows.length > 0) {
+      console.log('[UNINSTALL] Charge data:', chargesResult.rows);
+    }
+    
+    // Clean up shop data from database
+    const deleteShopsResult = await pool.query('DELETE FROM shops WHERE shop = $1', [shop]);
+    const deleteChargesResult = await pool.query('DELETE FROM charges WHERE shop = $1', [shop]);
+    
+    console.log(`[UNINSTALL] Deleted ${deleteShopsResult.rowCount} shop records`);
+    console.log(`[UNINSTALL] Deleted ${deleteChargesResult.rowCount} charge records`);
+    
+    console.log(`[UNINSTALL] ✅ Successfully cleaned up data for shop: ${shop}`);
+    console.log('=== UNINSTALL WEBHOOK COMPLETED ===\n');
+    
     res.status(200).send('OK');
   } catch (error) {
-    console.error(`[WEBHOOK] Error cleaning up data for shop ${shop}:`, error);
+    console.error(`[UNINSTALL] ❌ Error cleaning up data for shop ${shop}:`, error);
+    console.error('[UNINSTALL] Error stack:', error.stack);
+    console.log('=== UNINSTALL WEBHOOK FAILED ===\n');
     res.status(500).send('Error');
   }
 });
