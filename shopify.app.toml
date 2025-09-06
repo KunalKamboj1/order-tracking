@@ -26,16 +26,8 @@ uri = "/webhooks/app/uninstalled"
 
 # GDPR Compliance webhooks (MANDATORY for App Store)
 [[webhooks.subscriptions]]
-topics = ["customers/data_request"]
-uri = "/webhooks/customers/data_request"
-
-[[webhooks.subscriptions]]
-topics = ["customers/redact"]
-uri = "/webhooks/customers/redact"
-
-[[webhooks.subscriptions]]
-topics = ["shop/redact"]
-uri = "/webhooks/shop/redact"
+compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+uri = "/webhooks/gdpr"
 
 [pos]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#pos

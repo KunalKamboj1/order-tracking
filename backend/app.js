@@ -811,8 +811,151 @@ app.post('/webhooks/app/uninstalled', verifyWebhook, async (req, res) => {
   }
 });
 
-// GDPR Data Request Webhook
-app.post('/webhooks/customers/data_request', verifyWebhook, async (req, res) => {
+// Unified GDPR Webhook Handler
+app.post('/webhooks/gdpr', verifyWebhook, async (req, res) => {
+  const shop = req.get('X-Shopify-Shop-Domain');
+  const topic = req.get('X-Shopify-Topic');
+  
+  // Verify Content-Type header as required by Shopify
+  if (req.get('Content-Type') !== 'application/json') {
+    console.log(`[GDPR] Invalid Content-Type for ${topic} from shop: ${shop}`);
+    return res.status(400).send('Invalid Content-Type');
+  }
+  
+  try {
+    const payload = JSON.parse(req.body);
+    
+    // Route to appropriate handler based on topic
+    switch (topic) {
+      case 'customers/data_request':
+        return await handleCustomerDataRequest(req, res, shop, payload);
+      case 'customers/redact':
+        return await handleCustomerRedact(req, res, shop, payload);
+      case 'shop/redact':
+        return await handleShopRedact(req, res, shop, payload);
+      default:
+        console.log(`[GDPR] Unknown topic: ${topic}`);
+        return res.status(400).json({ error: 'Unknown GDPR topic' });
+    }
+  } catch (error) {
+    console.error(`[GDPR] Error processing ${topic} request:`, error);
+    res.status(500).json({ error: 'Error processing GDPR request' });
+  }
+});
+
+// GDPR Data Request Handler
+async function handleCustomerDataRequest(req, res, shop, payload) {
+  const customerId = payload.customer?.id;
+  const customerEmail = payload.customer?.email;
+  
+  console.log(`[GDPR] Data request received for shop: ${shop}`);
+  console.log(`[GDPR] Customer ID: ${customerId}, Email: ${customerEmail}`);
+  
+  // Log the request for compliance tracking
+  const requestTimestamp = new Date().toISOString();
+  console.log(`[GDPR] Data request logged at: ${requestTimestamp}`);
+  
+  // Collect customer data (we don't store personal data beyond order tracking)
+  const customerData = {
+    request_id: `${shop}-${customerId}-${Date.now()}`,
+    shop: shop,
+    customer_id: customerId,
+    customer_email: customerEmail,
+    request_date: requestTimestamp,
+    data_collected: 'No personal customer data stored beyond order tracking functionality',
+    message: 'This app only accesses order and fulfillment data through Shopify APIs and does not store personal customer information in our database.',
+    compliance_note: 'Data request will be completed within 30 days as required by privacy regulations'
+  };
+  
+  // In production, you would:
+  // 1. Store this request in a compliance tracking system
+  // 2. Generate a comprehensive data export
+  // 3. Provide the data to the merchant within 30 days
+  
+  console.log(`[GDPR] Data request acknowledged for customer: ${customerId}`);
+  res.status(200).json({ 
+    status: 'acknowledged',
+    message: 'Data request received and will be processed within 30 days',
+    request_id: customerData.request_id
+  });
+}
+ 
+ // GDPR Customer Redact Handler
+ async function handleCustomerRedact(req, res, shop, payload) {
+   const customerId = payload.customer?.id;
+   const customerEmail = payload.customer?.email;
+   
+   console.log(`[GDPR] Data redaction request received for shop: ${shop}`);
+   console.log(`[GDPR] Customer ID: ${customerId}, Email: ${customerEmail}`);
+   
+   // Log the redaction request for compliance tracking
+   const redactionTimestamp = new Date().toISOString();
+   console.log(`[GDPR] Redaction request logged at: ${redactionTimestamp}`);
+   
+   // Since we don't store personal customer data in our database,
+   // we acknowledge the request and log it for compliance
+   const redactionRecord = {
+     redaction_id: `${shop}-${customerId}-${Date.now()}`,
+     shop: shop,
+     customer_id: customerId,
+     customer_email: customerEmail,
+     redaction_date: redactionTimestamp,
+     action_taken: 'No personal data to redact - app does not store customer personal information',
+     compliance_note: 'Redaction request acknowledged and logged for compliance purposes'
+   };
+   
+   console.log(`[GDPR] Data redaction acknowledged for customer: ${customerId}`);
+   res.status(200).json({ 
+     status: 'acknowledged',
+     message: 'Customer data redaction request received and processed',
+     redaction_id: redactionRecord.redaction_id,
+     action: 'No personal customer data stored to redact'
+   });
+ }
+ 
+ // GDPR Shop Redact Handler
+ async function handleShopRedact(req, res, shop, payload) {
+   const shopId = payload.shop_id;
+   const shopDomain = payload.shop_domain || shop;
+   
+   console.log(`[GDPR] Shop data redaction request received for: ${shopDomain}`);
+   console.log(`[GDPR] Shop ID: ${shopId}`);
+   
+   // Log the redaction request for compliance tracking
+   const redactionTimestamp = new Date().toISOString();
+   console.log(`[GDPR] Shop redaction request logged at: ${redactionTimestamp}`);
+   
+   // This webhook is called 48 hours after app uninstallation
+   // Clean up all shop-related data from our database
+   const deletedShops = await pool.query('DELETE FROM shops WHERE shop = $1 RETURNING *', [shopDomain]);
+   const deletedCharges = await pool.query('DELETE FROM charges WHERE shop = $1 RETURNING *', [shopDomain]);
+   
+   const redactionRecord = {
+     redaction_id: `shop-${shopId}-${Date.now()}`,
+     shop_domain: shopDomain,
+     shop_id: shopId,
+     redaction_date: redactionTimestamp,
+     shops_deleted: deletedShops.rowCount,
+     charges_deleted: deletedCharges.rowCount,
+     compliance_note: 'Shop data redaction completed 48 hours after uninstallation as required by Shopify'
+   };
+   
+   console.log(`[GDPR] Shop data redaction completed for: ${shopDomain}`);
+   console.log(`[GDPR] Deleted ${deletedShops.rowCount} shop records and ${deletedCharges.rowCount} charge records`);
+   
+   res.status(200).json({ 
+     status: 'completed',
+     message: 'Shop data redaction completed successfully',
+     redaction_id: redactionRecord.redaction_id,
+     records_deleted: {
+       shops: deletedShops.rowCount,
+       charges: deletedCharges.rowCount
+     }
+   });
+ }
+ 
+ // Keep individual endpoints for backward compatibility
+ app.post('/webhooks/customers/data_request', verifyWebhook, async (req, res) => {
   const shop = req.get('X-Shopify-Shop-Domain');
   
   // Verify Content-Type header as required by Shopify
