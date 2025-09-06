@@ -1,0 +1,10 @@
+{
+  "tracking_widget": {
+    "title": "Track Your Order",
+    "placeholder": "Enter your order number",
+    "button": "Track Order",
+    "loading": "Loading...",
+    "error": "Order not found",
+    "success": "Order found!"
+  }
+}
