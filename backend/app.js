@@ -462,8 +462,22 @@ app.post('/install-theme-block', async (req, res) => {
 // Billing Routes
 
 // Create recurring subscription charge ($15/month with 3-day trial)
-// Billing subscription endpoint with JWT verification
-app.get('/billing/subscribe', verifySessionToken, async (req, res) => {
+// Billing subscription endpoint with conditional JWT verification
+app.get('/billing/subscribe', (req, res, next) => {
+  console.log('=== BILLING SUBSCRIBE REQUEST ===');
+  console.log('Authorization header present:', !!req.headers.authorization);
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Query params:', JSON.stringify(req.query, null, 2));
+  
+  // Check if request has Authorization header (from embedded app)
+  if (req.headers.authorization) {
+    console.log('Using session token verification for embedded app');
+    return verifySessionToken(req, res, next);
+  }
+  console.log('Skipping session token verification for Partner dashboard access');
+  // Skip session token verification for Partner dashboard access
+  next();
+}, async (req, res) => {
   try {
     // Extract shop from both JWT token and query parameters
     const shopFromJWT = req.shop; // Set by verifySessionToken middleware
@@ -550,8 +564,21 @@ app.get('/billing/subscribe', verifySessionToken, async (req, res) => {
 });
 
 // Create lifetime charge ($150 one-time with 3-day trial)
-// Create lifetime charge ($150 one-time with 3-day trial)
-app.get('/billing/lifetime', verifySessionToken, async (req, res) => {
+app.get('/billing/lifetime', (req, res, next) => {
+  console.log('=== BILLING LIFETIME REQUEST ===');
+  console.log('Authorization header present:', !!req.headers.authorization);
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Query params:', JSON.stringify(req.query, null, 2));
+  
+  // Check if request has Authorization header (from embedded app)
+  if (req.headers.authorization) {
+    console.log('Using session token verification for embedded app');
+    return verifySessionToken(req, res, next);
+  }
+  console.log('Skipping session token verification for Partner dashboard access');
+  // Skip session token verification for Partner dashboard access
+  next();
+}, async (req, res) => {
   try {
     // Extract shop from both JWT token and query parameters
     const shopFromJWT = req.shop; // Set by verifySessionToken middleware
