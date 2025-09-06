@@ -187,9 +187,94 @@ app.get('/', (req, res) => {
       auth: '/auth?shop=yourstore.myshopify.com',
       callback: '/callback',
       tracking: '/tracking?order_id=ORDER_ID&shop=SHOP_DOMAIN',
+      orders: '/orders?shop=SHOP_DOMAIN (list recent orders for testing)',
       health: '/health'
     }
   });
+});
+
+// Orders list endpoint for testing/debugging
+app.get('/orders', async (req, res) => {
+  const { shop } = req.query;
+  
+  console.log('=== ORDERS LIST REQUEST ===');
+  console.log('Shop:', shop);
+
+  if (!shop) {
+    return res.status(400).json({ error: 'Shop parameter is required' });
+  }
+
+  const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
+
+  try {
+    // Get shop data and access token
+    const result = await pool.query('SELECT * FROM shops WHERE shop = $1', [shopDomain]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Shop not found. Please install the app first.' });
+    }
+
+    const shopData = result.rows[0];
+    const accessToken = shopData.access_token;
+
+    if (!accessToken || accessToken === 'pending_oauth') {
+      return res.status(401).json({ error: 'Shop not authenticated. Please complete OAuth flow.' });
+    }
+
+    console.log(`[ORDERS] Fetching recent orders for shop: ${shopDomain}`);
+    
+    // Fetch recent orders from Shopify
+    const ordersResponse = await axios.get(
+      `https://${shopDomain}/admin/api/2023-10/orders.json?limit=10&status=any`,
+      {
+        headers: {
+          'X-Shopify-Access-Token': accessToken,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    const orders = ordersResponse.data.orders;
+    console.log(`[ORDERS] Found ${orders.length} orders`);
+    
+    // Format order data for easy testing
+    const orderList = orders.map(order => ({
+      id: order.id,
+      name: order.name,
+      order_number: order.order_number,
+      created_at: order.created_at,
+      financial_status: order.financial_status,
+      fulfillment_status: order.fulfillment_status || 'unfulfilled',
+      total_price: order.total_price,
+      currency: order.currency,
+      customer_email: order.email,
+      test_url: `/tracking?order_id=${encodeURIComponent(order.name)}&shop=${encodeURIComponent(shopDomain)}`
+    }));
+    
+    res.json({
+      success: true,
+      message: `Found ${orders.length} recent orders`,
+      shop: shopDomain,
+      orders: orderList
+    });
+    
+  } catch (error) {
+    console.error('[ORDERS] Error fetching orders:', error.message);
+    
+    if (error.response?.status === 401) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication failed',
+        message: 'Invalid or expired access token'
+      });
+    }
+    
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch orders',
+      message: 'Unable to retrieve orders at this time'
+    });
+  }
 });
 
 // OAuth start endpoint
