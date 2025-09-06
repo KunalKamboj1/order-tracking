@@ -535,20 +535,16 @@ app.get('/billing/subscribe', async (req, res) => {
   }
 
   try {
-    // Normalize shop domain (same as OAuth callback)
-    const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
-    console.log(`[BILLING] Normalized shop domain: ${shopDomain}`);
-    
     // Get shop's access token
-    console.log(`[BILLING] Fetching access token for shop: ${shopDomain}`);
-    const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shopDomain]);}]}}}
+    console.log(`[BILLING] Fetching access token for shop: ${shop}`);
+    const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shop]);
     if (shopResult.rows.length === 0) {
-      console.log(`[BILLING] ERROR: Shop not found in database: ${shopDomain}`);
+      console.log(`[BILLING] ERROR: Shop not found in database: ${shop}`);
       return res.status(404).json({ error: 'Shop not found' });
     }
 
     const accessToken = shopResult.rows[0].access_token;
-    console.log(`[BILLING] Access token retrieved for shop: ${shopDomain}`);
+    console.log(`[BILLING] Access token retrieved for shop: ${shop}`);
     
     // Create recurring charge via Shopify Billing API
     const backendUrl = process.env.BACKEND_URL.endsWith('/') ? process.env.BACKEND_URL.slice(0, -1) : process.env.BACKEND_URL;
@@ -637,20 +633,16 @@ app.get('/billing/lifetime', async (req, res) => {
   }
 
   try {
-    // Normalize shop domain (same as OAuth callback)
-    const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
-    console.log(`[BILLING] Normalized shop domain: ${shopDomain}`);
-    
     // Get shop's access token
-    console.log(`[BILLING] Fetching access token for shop: ${shopDomain}`);
-    const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shopDomain]);
+    console.log(`[BILLING] Fetching access token for shop: ${shop}`);
+    const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shop]);
     if (shopResult.rows.length === 0) {
-      console.log(`[BILLING] ERROR: Shop not found in database: ${shopDomain}`);
+      console.log(`[BILLING] ERROR: Shop not found in database: ${shop}`);
       return res.status(404).json({ error: 'Shop not found' });
     }
 
     const accessToken = shopResult.rows[0].access_token;
-    console.log(`[BILLING] Access token retrieved for shop: ${shopDomain}`);
+    console.log(`[BILLING] Access token retrieved for shop: ${shop}`);
     
     // Create one-time charge via Shopify Billing API
     const backendUrl = process.env.BACKEND_URL.endsWith('/') ? process.env.BACKEND_URL.slice(0, -1) : process.env.BACKEND_URL;
@@ -739,15 +731,11 @@ app.get('/billing/callback', async (req, res) => {
   }
 
   try {
-    // Normalize shop domain (same as OAuth callback)
-    const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
-    console.log(`[BILLING CALLBACK] Normalized shop domain: ${shopDomain}`);
-    
     // Get shop's access token
-    console.log(`[BILLING CALLBACK] Fetching access token for shop: ${shopDomain}`);
-    const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shopDomain]);
+    console.log(`[BILLING CALLBACK] Fetching access token for shop: ${shop}`);
+    const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shop]);
     if (shopResult.rows.length === 0) {
-      console.log(`[BILLING CALLBACK] ERROR: Shop not found in database: ${shopDomain}`);
+      console.log(`[BILLING CALLBACK] ERROR: Shop not found in database: ${shop}`);
       return res.status(404).json({ error: 'Shop not found' });
     }
 
