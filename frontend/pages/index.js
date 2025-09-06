@@ -67,7 +67,18 @@ function Home() {
       if (!shopParam) return; // Skip if no shop parameter
       
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
-      const response = await axios.get(`${backendUrl}/billing/status?shop=${encodeURIComponent(shopParam)}`);
+      const requestUrl = `${backendUrl}/billing/status?shop=${encodeURIComponent(shopParam)}`;
+      
+      let response;
+      if (isEmbedded && window.apiCall) {
+        // Use session token when embedded in Shopify Admin
+        const fetchResponse = await window.apiCall(requestUrl);
+        const data = await fetchResponse.json();
+        response = { data };
+      } else {
+        // Use regular axios when running standalone
+        response = await axios.get(requestUrl);
+      }
       
       if (!response.data.hasActiveBilling) {
         // Redirect to pricing page if no active billing
@@ -104,15 +115,10 @@ function Home() {
       
       let response;
       
-      if (isEmbedded && appBridge) {
-        // When embedded in Shopify Admin, use fetch with proper headers
-        console.log('Using fetch for embedded app');
-        const fetchResponse = await fetch(requestUrl, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+      if (isEmbedded && window.apiCall) {
+        // When embedded in Shopify Admin, use session token authentication
+        console.log('Using apiCall with session token for embedded app');
+        const fetchResponse = await window.apiCall(requestUrl);
         const data = await fetchResponse.json();
         response = {
           data: data,

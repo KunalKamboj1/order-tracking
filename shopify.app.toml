@@ -26,7 +26,7 @@ uri = "/webhooks/app/uninstalled"
 
 # GDPR Compliance webhooks (MANDATORY for App Store)
 [[webhooks.subscriptions]]
-topics = ["customers/data_request", "customers/redact", "shop/redact"]
+compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
 uri = "/webhooks/gdpr"
 
 [pos]

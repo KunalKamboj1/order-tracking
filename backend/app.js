@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const { Pool } = require('pg');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
@@ -127,6 +128,27 @@ const requireActiveBilling = async (req, res, next) => {
 // Apply billing enforcement to protected routes
 app.use(requireActiveBilling);
 
+// JWT Session Token verification middleware
+const verifySessionToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Session token required' });
+  }
+
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.SHOPIFY_API_SECRET);
+    req.shop = decoded.dest.replace('https://', '').replace('/admin', '');
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid session token' });
+  }
+};
+
+// Apply session token verification to API routes that need it
+// (We'll add this to specific routes as needed)
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({ 
@@ -207,8 +229,15 @@ app.get('/callback', async (req, res) => {
   }
 });
 
-// Tracking endpoint
-app.get('/tracking', async (req, res) => {
+// Tracking endpoint (with optional session token verification for embedded apps)
+app.get('/tracking', (req, res, next) => {
+  // Check if request has Authorization header (from embedded app)
+  if (req.headers.authorization) {
+    return verifySessionToken(req, res, next);
+  }
+  // Skip session token verification for standalone/public access
+  next();
+}, async (req, res) => {
   const { shop, order_id } = req.query;
   
   console.log('=== TRACKING REQUEST ===');
@@ -774,8 +803,15 @@ app.get('/billing/callback', async (req, res) => {
   }
 });
 
-// Billing status check endpoint
-app.get('/billing/status', async (req, res) => {
+// Billing status check endpoint (with optional session token verification for embedded apps)
+app.get('/billing/status', (req, res, next) => {
+  // Check if request has Authorization header (from embedded app)
+  if (req.headers.authorization) {
+    return verifySessionToken(req, res, next);
+  }
+  // Skip session token verification for standalone/public access
+  next();
+}, async (req, res) => {
   const { shop } = req.query;
   
   if (!shop) {
