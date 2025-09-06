@@ -448,9 +448,9 @@ app.get('/tracking', (req, res, next) => {
     try {
       console.log(`[TRACKING] Searching for order: ${order_id}`);
       
-      // First, search for the order by name to get the actual order ID
+      // Search for the order by name in the entire Shopify store database
       const ordersResponse = await axios.get(
-        `https://${shop}/admin/api/2023-10/orders.json?name=${encodeURIComponent(order_id)}&limit=1`,
+        `https://${shopDomain}/admin/api/2023-10/orders.json?name=${encodeURIComponent(order_id)}&limit=1`,
         {
           headers: {
             'X-Shopify-Access-Token': accessToken,
@@ -461,70 +461,79 @@ app.get('/tracking', (req, res, next) => {
       
       const orders = ordersResponse.data.orders;
       
+      // Case 3: Order not found
       if (!orders || orders.length === 0) {
-        console.log(`[TRACKING] Order ${order_id} not found by name search`);
-        return res.status(404).json({
+        console.log(`[TRACKING] Order ${order_id} not found in store database`);
+        return res.json({
           success: false,
-          error: 'Order not found',
-          message: `Order ${order_id} was not found in your store`
+          message: 'Please check the order number and try again.'
         });
       }
       
       const order = orders[0];
-       console.log(`[TRACKING] Order found: ${order.name} (ID: ${order.id}) - Status: ${order.fulfillment_status || 'unfulfilled'}`);
+      console.log(`[TRACKING] Order found: ${order.name} (ID: ${order.id})`);
+      console.log(`[TRACKING] Order data:`, JSON.stringify(order, null, 2));
       
-      // Extract tracking information
-      const trackingInfo = {
-        order_number: order.name,
-        order_id: order.id,
-        status: order.fulfillment_status || 'unfulfilled',
-        financial_status: order.financial_status,
-        created_at: order.created_at,
-        updated_at: order.updated_at,
-        total_price: order.total_price,
-        currency: order.currency,
-        customer: {
-          email: order.email,
-          first_name: order.customer?.first_name,
-          last_name: order.customer?.last_name
-        },
-        shipping_address: order.shipping_address,
-        fulfillments: order.fulfillments?.map(f => ({
-          id: f.id,
-          status: f.status,
-          tracking_company: f.tracking_company,
-          tracking_number: f.tracking_number,
-          tracking_url: f.tracking_url,
-          created_at: f.created_at,
-          updated_at: f.updated_at
-        })) || [],
-        line_items: order.line_items?.map(item => ({
-          id: item.id,
-          title: item.title,
-          quantity: item.quantity,
-          price: item.price,
-          fulfillment_status: item.fulfillment_status
-        })) || []
-      };
+      // Check if order has tracking information
+      const hasTrackingInfo = order.fulfillments && order.fulfillments.length > 0 && 
+                             order.fulfillments.some(f => f.tracking_number || f.tracking_url);
       
-      console.log(`[TRACKING] Returning tracking info for order: ${order.name}`);
-      
-      res.json({
-        success: true,
-        message: 'Order tracking retrieved successfully',
-        tracking: trackingInfo
-      });
+      if (hasTrackingInfo) {
+        // Case 1: Order found with tracking info
+        console.log(`[TRACKING] Order has tracking information`);
+        
+        const trackingInfo = {
+          order_number: order.name,
+          order_id: order.id,
+          status: order.fulfillment_status || 'unfulfilled',
+          financial_status: order.financial_status,
+          created_at: order.created_at,
+          updated_at: order.updated_at,
+          total_price: order.total_price,
+          currency: order.currency,
+          customer: {
+            email: order.email,
+            first_name: order.customer?.first_name,
+            last_name: order.customer?.last_name
+          },
+          shipping_address: order.shipping_address,
+          fulfillments: order.fulfillments?.map(f => ({
+            id: f.id,
+            status: f.status,
+            tracking_company: f.tracking_company,
+            tracking_number: f.tracking_number,
+            tracking_url: f.tracking_url,
+            created_at: f.created_at,
+            updated_at: f.updated_at
+          })) || [],
+          line_items: order.line_items?.map(item => ({
+            id: item.id,
+            title: item.title,
+            quantity: item.quantity,
+            price: item.price,
+            fulfillment_status: item.fulfillment_status
+          })) || []
+        };
+        
+        console.log(`[TRACKING] Returning tracking info for order: ${order.name}`);
+        
+        return res.json({
+          success: true,
+          message: 'Order tracking retrieved successfully',
+          tracking: trackingInfo
+        });
+      } else {
+        // Case 2: Order found but no tracking info
+        console.log(`[TRACKING] Order found but no tracking information available`);
+        
+        return res.json({
+          success: false,
+          message: 'Order found but no shipping info available'
+        });
+      }
       
     } catch (orderError) {
       console.error(`[TRACKING] Error fetching order ${order_id}:`, orderError.message);
-      
-      if (orderError.response?.status === 404) {
-        return res.status(404).json({
-          success: false,
-          error: 'Order not found',
-          message: `Order ${order_id} was not found in your store`
-        });
-      }
       
       return res.status(500).json({
         success: false,
