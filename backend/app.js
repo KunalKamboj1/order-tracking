@@ -531,8 +531,9 @@ app.get('/billing/subscribe', (req, res, next) => {
     console.log('Creating recurring charge via Shopify API...');
     const charge = {
       recurring_application_charge: {
-        name: 'Premium Plan',
-        price: 9.99,
+        name: 'Monthly Plan',
+        price: 15.00,
+        trial_days: 3,
         return_url: `${process.env.FRONTEND_URL}/billing/callback`,
         test: process.env.NODE_ENV !== 'production'
       }
