@@ -864,41 +864,8 @@ app.get('/webhooks/test', (req, res) => {
   });
 });
 
-// Webhook endpoint for app installation (handles Partner dashboard installs)
-app.post('/webhooks/app/installed', verifyWebhook, async (req, res) => {
-  console.log('=== APP INSTALLED WEBHOOK ===');
-  
-  try {
-    const webhookData = JSON.parse(req.body.toString());
-    console.log('Webhook data:', webhookData);
-    
-    const shopDomain = req.get('X-Shopify-Shop-Domain');
-    console.log('Shop domain from header:', shopDomain);
-    
-    if (!shopDomain) {
-      console.error('No shop domain in webhook headers');
-      return res.status(400).json({ error: 'Shop domain required' });
-    }
-    
-    // For app/installed webhook, we need to get the access token from Shopify
-    // This happens when app is installed via Partner dashboard
-    console.log('Processing Partner dashboard installation for shop:', shopDomain);
-    
-    // Store shop in database with placeholder token (will be updated when app loads)
-    const result = await pool.query(
-      'INSERT INTO shops (shop, access_token) VALUES ($1, $2) ON CONFLICT (shop) DO UPDATE SET access_token = COALESCE(EXCLUDED.access_token, shops.access_token) RETURNING *',
-      [shopDomain, 'pending_oauth']
-    );
-    
-    console.log('Shop stored/updated:', result.rows[0]);
-    console.log('App installation webhook processed successfully');
-    
-    res.status(200).json({ success: true });
-  } catch (error) {
-    console.error('App installation webhook error:', error);
-    res.status(500).json({ error: 'Failed to process installation webhook' });
-  }
-});
+// Note: app/installed webhook is not supported by Shopify
+// Partner dashboard installations are handled by the frontend shop status check
 
 // Webhook endpoint for app uninstallation
 app.post('/webhooks/app/uninstalled', verifyWebhook, async (req, res) => {
