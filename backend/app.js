@@ -556,7 +556,10 @@ app.get('/billing/subscribe', (req, res, next) => {
     }
 
     console.log('Recurring charge created successfully');
-    res.json(data);
+    console.log('Redirecting to confirmation URL:', data.recurring_application_charge.confirmation_url);
+    
+    // Redirect user to Shopify charge confirmation page
+    res.redirect(data.recurring_application_charge.confirmation_url);
   } catch (error) {
     console.error('Billing subscription error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
