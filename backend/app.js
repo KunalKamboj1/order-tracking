@@ -440,35 +440,9 @@ app.get('/tracking', (req, res, next) => {
     }
 
     const accessToken = result.rows[0].access_token;
-    console.log(`[BILLING] Access token retrieved for shop: ${shop}`);
+    console.log(`[TRACKING] Access token retrieved for shop: ${shop}`);
     
-    // Check if shop has active billing (including free plan)
-    const hasActive = await hasActiveBilling(shop);
-    if (!hasActive) {
-      console.log(`[BILLING] No active billing found for shop: ${shop}. Redirecting to pricing.`);
-      return res.send(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Subscription Required</title>
-          </head>
-          <body>
-            <script>
-              if (window.top !== window.self) {
-                // We're in an iframe, redirect the parent window
-                window.top.location.href = "https://${shop}/admin/apps/order-tracking-pro-1?billing=required";
-              } else {
-                // We're not in an iframe, redirect normally
-                window.location.href = "https://${shop}/admin/apps/order-tracking-pro-1?billing=required";
-              }
-            </script>
-            <p>Subscription required. Redirecting to pricing...</p>
-          </body>
-        </html>
-      `);
-    }
-    
-    console.log(`[TRACKING] Shop has active billing. Proceeding with order tracking for order: ${order_id}`);
+    console.log(`[TRACKING] Proceeding with order tracking for order: ${order_id}`);
     
     // Fetch order details from Shopify
     try {
