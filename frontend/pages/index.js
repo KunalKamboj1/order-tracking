@@ -16,7 +16,7 @@ import axios from 'axios';
 import { useAppBridge } from '@shopify/app-bridge-react';
 import ErrorBoundary from '../components/ErrorBoundary';
 
-export default function Home() {
+function Home() {
   const [orderId, setOrderId] = useState('');
   const [trackingData, setTrackingData] = useState(null);
   const [loading, setLoading] = useState(false);
