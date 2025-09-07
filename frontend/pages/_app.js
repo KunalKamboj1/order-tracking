@@ -3,59 +3,41 @@ import { Provider as AppBridgeProvider, useAppBridge } from '@shopify/app-bridge
 import { getSessionToken } from '@shopify/app-bridge-utils';
 import '@shopify/polaris/build/esm/styles.css';
 import '../styles/globals.css';
+import Script from 'next/script';
 
 // Global API helper function for authenticated requests
 const createApiCall = (app) => {
   return async (url, options = {}) => {
     try {
-      const sessionToken = await getSessionToken(app);
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          'Authorization': `Bearer ${sessionToken}`,
-          'Content-Type': 'application/json',
-          ...options.headers
-        }
-      });
-      
-      // If we get a 401 (session token error), retry without token
-      if (response.status === 401) {
-        console.log('Session token invalid, retrying without token');
+      const attempt = async () => {
+        const sessionToken = await getSessionToken(app);
         return fetch(url, {
           ...options,
           headers: {
+            'Authorization': `Bearer ${sessionToken}`,
             'Content-Type': 'application/json',
             ...options.headers
           }
         });
+      };
+      // First attempt with token
+      let response = await attempt();
+      // If 401, retry ONCE with a fresh token
+      if (response.status === 401) {
+        console.warn('Session token rejected (401). Retrying with a fresh token...');
+        response = await attempt();
       }
-      
       return response;
     } catch (error) {
-      console.error('API call failed:', error);
-      // Fallback to regular fetch without session token
-      return fetch(url, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers
-        }
+      console.error('API call failed; returning error response:', error);
+      // Return a synthetic 500 response rather than silently stripping token
+      return new Response(JSON.stringify({ error: 'Network or token error' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
       });
     }
   };
 };
-
-// Component to set up global API helper
-function ApiSetup() {
-  const app = useAppBridge();
-  
-  // Make apiCall available globally when inside Shopify admin
-  if (typeof window !== 'undefined' && app) {
-    window.apiCall = createApiCall(app);
-  }
-  
-  return null;
-}
 
 function MyApp({ Component, pageProps }) {
   const host = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('host');
@@ -108,10 +90,13 @@ function MyApp({ Component, pageProps }) {
   // Only use AppBridge when host is available (inside Shopify admin)
   if (host) {
     return (
-      <AppBridgeProvider config={config}>
-        <ApiSetup />
-        {AppContent}
-      </AppBridgeProvider>
+      <>
+        <Script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" strategy="beforeInteractive" />
+        <AppBridgeProvider config={config}>
+          <ApiSetup />
+          {AppContent}
+        </AppBridgeProvider>
+      </>
     );
   }
 
