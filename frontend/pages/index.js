@@ -1,3 +1,4 @@
+<script src="https://unpkg.com/@shopify/app-bridge@3"></script>
 import { useState, useEffect } from 'react';
 import {
   Page,
