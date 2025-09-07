@@ -5,6 +5,8 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
+
+        <script src="https://unpkg.com/@shopify/app-bridge@3"></script>
         {/* Add Tailwind CSS via CDN for widget page */}
         <script
           dangerouslySetInnerHTML={{
