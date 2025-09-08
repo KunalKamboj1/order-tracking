@@ -845,7 +845,14 @@ app.get('/tracking', async (req, res) => {
     
     // Build query parameters for order lookup
     if (order_id) {
-      ordersUrl = `https://${shopDomain}/admin/api/2023-10/orders/${order_id}.json`;
+      // Check if order_id is numeric (actual ID) or starts with # (order name)
+      if (/^\d+$/.test(order_id)) {
+        // Numeric ID - fetch single order
+        ordersUrl = `https://${shopDomain}/admin/api/2023-10/orders/${order_id}.json`;
+      } else {
+        // Order name (like #1002) - search through orders
+        ordersUrl += `&name=${encodeURIComponent(order_id)}&limit=250`;
+      }
     } else if (tracking_number) {
       ordersUrl += `&fulfillment_status=shipped&limit=250`;
     } else if (email) {
@@ -862,14 +869,14 @@ app.get('/tracking', async (req, res) => {
     
     let orders = [];
     
-    if (order_id) {
-      // Single order response
+    if (order_id && /^\d+$/.test(order_id)) {
+      // Single order response (numeric ID)
       const order = response.data.order;
       if (order) {
         orders = [order];
       }
     } else {
-      // Multiple orders response
+      // Multiple orders response (order name search, tracking number, email, etc.)
       orders = response.data.orders || [];
     }
     
