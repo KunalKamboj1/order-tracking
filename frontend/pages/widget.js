@@ -34,7 +34,7 @@ export default function Widget() {
 
     try {
       const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/tracking?shop=${shop}&order_id=${orderId}`
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/tracking?shop=${shop}&order_id=${orderId}&public=true`
       );
 
       setTrackingData(response.data);
@@ -72,8 +72,8 @@ export default function Widget() {
       );
     }
 
-    // Handle tracking response
-    if (trackingData.tracking_number === null) {
+    // Handle new API response format
+    if (!trackingData.found || !trackingData.tracking_data || trackingData.tracking_data.length === 0) {
       return (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
           <p className="text-yellow-800">
@@ -83,38 +83,89 @@ export default function Widget() {
       );
     }
 
-    // Display tracking information
-    if (trackingData.tracking_number) {
-      return (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
-          <h3 className="text-lg font-semibold text-green-800 mb-3">Tracking Information</h3>
-          <div className="p-3 bg-white rounded border">
-            <div className="mb-2">
-              <span className="font-medium text-gray-700">Tracking Number:</span>
-              <span className="ml-2 text-gray-900 font-mono">{trackingData.tracking_number}</span>
-            </div>
-            {trackingData.tracking_company && (
+    // Display tracking information for each order
+    return (
+      <div className="mt-4 space-y-4">
+        {trackingData.tracking_data.map((order, orderIndex) => (
+          <div key={order.order_id} className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-green-800 mb-3">Order {order.order_name}</h3>
+            
+            <div className="p-3 bg-white rounded border mb-4">
               <div className="mb-2">
-                <span className="font-medium text-gray-700">Shipping Company:</span>
-                <span className="ml-2 text-gray-900">{trackingData.tracking_company}</span>
+                <span className="font-medium text-gray-700">Order Date:</span>
+                <span className="ml-2 text-gray-900">{new Date(order.order_date).toLocaleDateString()}</span>
               </div>
-            )}
-            {trackingData.tracking_url && (
-              <div className="mt-3">
-                <a
-                  href={trackingData.tracking_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Track Package →
-                </a>
+              <div className="mb-2">
+                <span className="font-medium text-gray-700">Total:</span>
+                <span className="ml-2 text-gray-900">{order.currency} {order.total_price}</span>
+              </div>
+              <div className="mb-2">
+                <span className="font-medium text-gray-700">Status:</span>
+                <span className="ml-2 text-gray-900">{order.financial_status} / {order.fulfillment_status}</span>
+              </div>
+            </div>
+
+            {order.fulfillments && order.fulfillments.length > 0 ? (
+              <div className="space-y-3">
+                <h4 className="text-md font-semibold text-green-700">Tracking Information</h4>
+                {order.fulfillments.map((fulfillment, fulfillmentIndex) => (
+                  <div key={fulfillment.id} className="p-3 bg-white rounded border">
+                    {fulfillment.tracking_number && (
+                      <div className="mb-2">
+                        <span className="font-medium text-gray-700">Tracking Number:</span>
+                        <span className="ml-2 text-gray-900 font-mono">{fulfillment.tracking_number}</span>
+                      </div>
+                    )}
+                    {fulfillment.tracking_company && (
+                      <div className="mb-2">
+                        <span className="font-medium text-gray-700">Shipping Company:</span>
+                        <span className="ml-2 text-gray-900">{fulfillment.tracking_company}</span>
+                      </div>
+                    )}
+                    <div className="mb-2">
+                      <span className="font-medium text-gray-700">Status:</span>
+                      <span className="ml-2 text-gray-900">{fulfillment.status}</span>
+                    </div>
+                    {fulfillment.shipped_date && (
+                      <div className="mb-2">
+                        <span className="font-medium text-gray-700">Shipped:</span>
+                        <span className="ml-2 text-gray-900">{new Date(fulfillment.shipped_date).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                    {fulfillment.line_items && fulfillment.line_items.length > 0 && (
+                      <div className="mb-2">
+                        <span className="font-medium text-gray-700">Items:</span>
+                        <ul className="ml-2 mt-1">
+                          {fulfillment.line_items.map((item, itemIndex) => (
+                            <li key={itemIndex} className="text-gray-900">{item.name} (Qty: {item.quantity})</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {fulfillment.tracking_url && (
+                      <div className="mt-3">
+                        <a
+                          href={fulfillment.tracking_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                        >
+                          Track Package →
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                <p className="text-yellow-800">No tracking information available for this order</p>
               </div>
             )}
           </div>
-        </div>
-      );
-    }
+        ))}
+      </div>
+    );
 
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">

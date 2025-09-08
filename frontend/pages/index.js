@@ -332,8 +332,8 @@ function Home() {
       );
     }
 
-    // Handle tracking response
-    if (trackingData.tracking_number === null) {
+    // Handle new API response format
+    if (!trackingData.found || !trackingData.tracking_data || trackingData.tracking_data.length === 0) {
       return (
         <Banner status="info">
           <p>No tracking information available for this order</p>
@@ -341,30 +341,61 @@ function Home() {
       );
     }
 
-    // Display tracking information
-    if (trackingData.tracking_number) {
-      return (
-        <Card sectioned>
-          <BlockStack gap="400">
-            <Text variant="headingMd" as="h2">Tracking Information</Text>
-            <TextContainer>
-              <p><strong>Tracking Number:</strong> {trackingData.tracking_number}</p>
-              {trackingData.tracking_company && (
-                <p><strong>Shipping Company:</strong> {trackingData.tracking_company}</p>
-              )}
-              {trackingData.tracking_url && (
-                <p><strong>Track Package:</strong> <a href={trackingData.tracking_url} target="_blank" rel="noopener noreferrer">Click here to track</a></p>
-              )}
-            </TextContainer>
-          </BlockStack>
-        </Card>
-      );
-    }
-
+    // Display tracking information for each order
     return (
-      <Banner status="warning">
-        <p>Unable to display tracking information</p>
-      </Banner>
+      <BlockStack gap="400">
+        {trackingData.tracking_data.map((order, orderIndex) => (
+          <Card sectioned key={order.order_id}>
+            <BlockStack gap="400">
+              <Text variant="headingMd" as="h2">Order {order.order_name}</Text>
+              <TextContainer>
+                <p><strong>Order Date:</strong> {new Date(order.order_date).toLocaleDateString()}</p>
+                <p><strong>Total:</strong> {order.currency} {order.total_price}</p>
+                <p><strong>Status:</strong> {order.financial_status} / {order.fulfillment_status}</p>
+              </TextContainer>
+              
+              {order.fulfillments && order.fulfillments.length > 0 ? (
+                <BlockStack gap="300">
+                  <Text variant="headingSm" as="h3">Tracking Information</Text>
+                  {order.fulfillments.map((fulfillment, fulfillmentIndex) => (
+                    <Card key={fulfillment.id}>
+                      <TextContainer>
+                        {fulfillment.tracking_number && (
+                          <p><strong>Tracking Number:</strong> {fulfillment.tracking_number}</p>
+                        )}
+                        {fulfillment.tracking_company && (
+                          <p><strong>Shipping Company:</strong> {fulfillment.tracking_company}</p>
+                        )}
+                        {fulfillment.tracking_url && (
+                          <p><strong>Track Package:</strong> <a href={fulfillment.tracking_url} target="_blank" rel="noopener noreferrer">Click here to track</a></p>
+                        )}
+                        <p><strong>Status:</strong> {fulfillment.status}</p>
+                        {fulfillment.shipped_date && (
+                          <p><strong>Shipped:</strong> {new Date(fulfillment.shipped_date).toLocaleDateString()}</p>
+                        )}
+                        {fulfillment.line_items && fulfillment.line_items.length > 0 && (
+                          <div>
+                            <p><strong>Items:</strong></p>
+                            <ul>
+                              {fulfillment.line_items.map((item, itemIndex) => (
+                                <li key={itemIndex}>{item.name} (Qty: {item.quantity})</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </TextContainer>
+                    </Card>
+                  ))}
+                </BlockStack>
+              ) : (
+                <Banner status="info">
+                  <p>No tracking information available for this order</p>
+                </Banner>
+              )}
+            </BlockStack>
+          </Card>
+        ))}
+      </BlockStack>
     );
   };
 
