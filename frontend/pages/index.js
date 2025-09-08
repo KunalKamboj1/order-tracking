@@ -156,7 +156,7 @@ function Home() {
       
       if (!shopParam) return; // Skip if no shop parameter
       
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://order-tracking-pro.onrender.com';
       const requestUrl = `${backendUrl}/billing/status?shop=${encodeURIComponent(shopParam)}`;
       
       let response;

@@ -267,7 +267,7 @@ app.get('/auth', (req, res) => {
 
   const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
   const scopes = 'read_orders,read_products,read_themes,write_themes';
-  const redirectUri = `${process.env.BACKEND_URL || 'http://localhost:3000'}/callback`;
+  const redirectUri = `${process.env.BACKEND_URL || 'https://order-tracking-pro.onrender.com'}/callback`;
   
   console.log('🔧 [BACKEND] OAuth Configuration:', {
     originalShop: shop,
@@ -919,7 +919,7 @@ app.get('/billing/subscribe', (req, res, next) => {
     }
     
     const { access_token } = shopResult.rows[0];
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+    const backendUrl = process.env.BACKEND_URL || 'https://order-tracking-pro.onrender.com';
     
     // Create recurring application charge
     const chargeData = {
@@ -989,7 +989,7 @@ app.get('/billing/lifetime', (req, res, next) => {
     }
     
     const { access_token } = shopResult.rows[0];
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+    const backendUrl = process.env.BACKEND_URL || 'https://order-tracking-pro.onrender.com';
     
     // Create one-time application charge for lifetime plan
     const chargeData = {
@@ -1310,7 +1310,7 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log('Environment:', process.env.NODE_ENV || 'development');
   console.log('Frontend URL:', process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app');
-  console.log('Backend URL:', process.env.BACKEND_URL || 'http://localhost:3000');
+  console.log('Backend URL:', process.env.BACKEND_URL || 'https://order-tracking-pro.onrender.com');
 });
 
 // Graceful shutdown

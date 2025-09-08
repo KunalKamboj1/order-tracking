@@ -78,7 +78,7 @@ function PricingPage() {
         endpoint = 'lifetime';
       }
       
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://order-tracking-pro.onrender.com';
       
       // Redirect to backend billing endpoint
       const host = window.__HOST_PARAM__ || new URLSearchParams(window.location.search).get('host');
