@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // API endpoint - using the deployed backend on Render
     const backendUrl = window.TRACKING_BACKEND_URL || 'https://order-tracking-pro.onrender.com';
-        const apiUrl = `${backendUrl}/tracking?order_id=${encodeURIComponent(orderNumber)}&shop=${encodeURIComponent(shopDomain)}`;
+        const apiUrl = `${backendUrl}/tracking?order_id=${encodeURIComponent(orderNumber)}&shop=${encodeURIComponent(shopDomain)}&public=true`;
     
     fetch(apiUrl, {
       method: 'GET',

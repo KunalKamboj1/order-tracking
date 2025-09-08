@@ -816,14 +816,8 @@ app.get('/orders', async (req, res) => {
   }
 });
 
-// Tracking endpoint
-app.get('/tracking', (req, res, next) => {
-  // Skip session token verification for public tracking lookups
-  if (req.query.public === 'true') {
-    return next();
-  }
-  verifySessionToken(req, res, next);
-}, async (req, res) => {
+// Tracking endpoint - publicly accessible for order tracking
+app.get('/tracking', async (req, res) => {
   const { shop, order_id, tracking_number, email } = req.query;
   
   if (!shop) {
