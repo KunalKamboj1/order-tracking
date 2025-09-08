@@ -122,7 +122,7 @@ const hasActiveBilling = async (shop) => {
 const requireActiveBilling = async (req, res, next) => {
   // Skip billing check for certain endpoints
   const skipBilling = [
-    '/auth', '/callback', '/health', '/billing', '/webhooks'
+    '/auth', '/callback', '/health', '/billing', '/webhooks', '/shop/status'
   ].some(path => req.path.startsWith(path));
   
   if (skipBilling) {
