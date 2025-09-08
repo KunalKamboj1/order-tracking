@@ -79,9 +79,26 @@ function PricingPage() {
       }
       
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://order-tracking-pro.onrender.com';
-      
-      // Redirect to backend billing endpoint
       const host = window.__HOST_PARAM__ || new URLSearchParams(window.location.search).get('host');
+      
+      // First check if shop is installed
+      try {
+        const statusResponse = await fetch(`${backendUrl}/shop/status?shop=${shop}`);
+        const statusData = await statusResponse.json();
+        
+        if (!statusData.installed) {
+          // Shop not installed, redirect to auth
+          const authUrl = new URL(`${backendUrl}${statusData.authUrl}`);
+          if (host) authUrl.searchParams.set('host', host);
+          authUrl.searchParams.set('returnUrl', window.location.href);
+          window.location.href = authUrl.toString();
+          return;
+        }
+      } catch (statusError) {
+        console.warn('Shop status check failed, proceeding with billing:', statusError);
+      }
+      
+      // Proceed with billing
       const billingUrl = new URL(`${backendUrl}/billing/${endpoint}`);
       billingUrl.searchParams.set('shop', shop);
       if (host) billingUrl.searchParams.set('host', host);

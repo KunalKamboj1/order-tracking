@@ -714,7 +714,12 @@ app.get('/tracking', (req, res, next) => {
     const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shopDomain]);
     
     if (shopResult.rows.length === 0) {
-      return res.status(401).json({ error: 'Shop not found' });
+      // Shop not installed yet - redirect to installation
+      return res.status(401).json({ 
+        error: 'Shop not installed', 
+        needsInstallation: true,
+        authUrl: `/auth?shop=${shopDomain}` 
+      });
     }
     
     const { access_token } = shopResult.rows[0];
