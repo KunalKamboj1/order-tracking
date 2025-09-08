@@ -11,6 +11,7 @@ import {
   InlineStack,
 } from '@shopify/polaris';
 import { useAppBridge } from '@shopify/app-bridge-react';
+import { Redirect } from '@shopify/app-bridge/actions';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 function PricingPage() {
@@ -27,8 +28,16 @@ function PricingPage() {
   } catch (e) {
     // App Bridge not available during SSR or standalone mode
   }
+  
+  const [isClient, setIsClient] = useState(false);
+  const [appBridge, setAppBridge] = useState(null);
+  
+  const isEmbedded = isClient && (!!appBridge || !!app) && typeof window !== 'undefined' && !!window.apiCall;
 
   useEffect(() => {
+    setIsClient(true);
+    setAppBridge(app);
+    
     // Get shop from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const shopParam = urlParams.get('shop');
@@ -91,7 +100,25 @@ function PricingPage() {
           const authUrl = new URL(`${backendUrl}${statusData.authUrl}`);
           if (host) authUrl.searchParams.set('host', host);
           authUrl.searchParams.set('returnUrl', window.location.href);
-          window.location.href = authUrl.toString();
+          
+          console.log('🔄 [PRICING] OAuth required, redirecting:', {
+            authUrl: authUrl.toString(),
+            isEmbedded,
+            hasAppBridge: !!app
+          });
+          
+          // Use App Bridge redirect for embedded apps, fallback to window.location for standalone
+          if (isEmbedded && app) {
+            console.log('🔗 [PRICING] Using App Bridge redirect for embedded OAuth');
+            const redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.REMOTE, {
+              url: authUrl.toString(),
+              newContext: true
+            });
+          } else {
+            console.log('🌐 [PRICING] Using window.location redirect for standalone OAuth');
+            window.location.href = authUrl.toString();
+          }
           return;
         }
       } catch (statusError) {
@@ -102,7 +129,26 @@ function PricingPage() {
       const billingUrl = new URL(`${backendUrl}/billing/${endpoint}`);
       billingUrl.searchParams.set('shop', shop);
       if (host) billingUrl.searchParams.set('host', host);
-      window.location.href = billingUrl.toString();
+      
+      console.log('💳 [PRICING] Proceeding with billing:', {
+        billingUrl: billingUrl.toString(),
+        planType,
+        isEmbedded,
+        hasAppBridge: !!app
+      });
+      
+      // Use App Bridge redirect for embedded apps, fallback to window.location for standalone
+      if (isEmbedded && app) {
+        console.log('🔗 [PRICING] Using App Bridge redirect for embedded billing');
+        const redirect = Redirect.create(app);
+        redirect.dispatch(Redirect.Action.REMOTE, {
+          url: billingUrl.toString(),
+          newContext: true
+        });
+      } else {
+        console.log('🌐 [PRICING] Using window.location redirect for standalone billing');
+        window.location.href = billingUrl.toString();
+      }
     } catch (err) {
       setError('Failed to initiate billing process. Please try again.');
       setLoading(prev => ({ ...prev, [planType]: false }));

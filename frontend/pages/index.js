@@ -14,6 +14,7 @@ import {
 } from '@shopify/polaris';
 import axios from 'axios';
 import { useAppBridge } from '@shopify/app-bridge-react';
+import { Redirect } from '@shopify/app-bridge/actions';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 function Home() {
@@ -88,10 +89,23 @@ function Home() {
               console.log('🚀 [FRONTEND] Redirecting to OAuth:', {
                 redirectUrl: redirectUrl.toString(),
                 preservedHost: host,
-                returnUrl: window.location.href
+                returnUrl: window.location.href,
+                isEmbedded,
+                hasAppBridge: !!app
               });
               
-              window.location.href = redirectUrl.toString();
+              // Use App Bridge redirect for embedded apps, fallback to window.location for standalone
+              if (isEmbedded && app) {
+                console.log('🔗 [FRONTEND] Using App Bridge redirect for embedded context');
+                const redirect = Redirect.create(app);
+                redirect.dispatch(Redirect.Action.REMOTE, {
+                  url: redirectUrl.toString(),
+                  newContext: true
+                });
+              } else {
+                console.log('🌐 [FRONTEND] Using window.location redirect for standalone context');
+                window.location.href = redirectUrl.toString();
+              }
             } catch (e) {
               console.warn('⚠️ [FRONTEND] URL constructor failed, using fallback:', e.message);
               // Fallback if URL constructor fails due to invalid base
@@ -102,7 +116,19 @@ function Home() {
               const fallbackUrl = `${backend}${authUrl}${sep}${params.join('&')}`;
               
               console.log('🚀 [FRONTEND] Fallback redirect URL:', fallbackUrl);
-              window.location.href = fallbackUrl;
+              
+              // Use App Bridge redirect for embedded apps, fallback to window.location for standalone
+              if (isEmbedded && app) {
+                console.log('🔗 [FRONTEND] Using App Bridge redirect for fallback embedded context');
+                const redirect = Redirect.create(app);
+                redirect.dispatch(Redirect.Action.REMOTE, {
+                  url: fallbackUrl,
+                  newContext: true
+                });
+              } else {
+                console.log('🌐 [FRONTEND] Using window.location redirect for fallback standalone context');
+                window.location.href = fallbackUrl;
+              }
             }
             return;
           } else {
@@ -175,7 +201,25 @@ function Home() {
         const host = urlParams.get('host');
         const params = new URLSearchParams({ shop: shopParam });
         if (host) params.set('host', host);
-        window.location.href = `/pricing?${params.toString()}`;
+        const pricingUrl = `/pricing?${params.toString()}`;
+        
+        console.log('💳 [FRONTEND] No active billing, redirecting to pricing:', {
+          pricingUrl,
+          isEmbedded,
+          hasAppBridge: !!app
+        });
+        
+        // Use App Bridge redirect for embedded apps, fallback to window.location for standalone
+        if (isEmbedded && app) {
+          console.log('🔗 [FRONTEND] Using App Bridge redirect for embedded pricing');
+          const redirect = Redirect.create(app);
+          redirect.dispatch(Redirect.Action.APP, {
+            path: pricingUrl
+          });
+        } else {
+          console.log('🌐 [FRONTEND] Using window.location redirect for standalone pricing');
+          window.location.href = pricingUrl;
+        }
       }
     } catch (error) {
        // Continue without redirect on error to avoid breaking the app
