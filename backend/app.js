@@ -34,9 +34,11 @@ const initDatabase = async () => {
         id SERIAL PRIMARY KEY,
         shop VARCHAR(255) NOT NULL,
         charge_id VARCHAR(255) UNIQUE NOT NULL,
-        plan_type VARCHAR(50) NOT NULL,
-        status VARCHAR(50) NOT NULL,
-        amount DECIMAL(10,2),
+        type VARCHAR(20) NOT NULL CHECK (type IN ('recurring', 'lifetime', 'free')),
+        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        amount DECIMAL(10,2) NOT NULL,
+        currency VARCHAR(3) DEFAULT 'USD',
+        trial_days INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -660,7 +662,7 @@ app.get('/billing/free', async (req, res) => {
     
     // Store free plan in database
     await pool.query(
-      'INSERT INTO charges (shop, charge_id, plan_type, status, amount) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (charge_id) DO UPDATE SET status = EXCLUDED.status',
+      'INSERT INTO charges (shop, charge_id, type, status, amount) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (charge_id) DO UPDATE SET status = EXCLUDED.status',
       [shopDomain, `free_${Date.now()}`, 'free', 'active', 0.00]
     );
     
@@ -669,6 +671,7 @@ app.get('/billing/free', async (req, res) => {
     res.redirect(redirectUrl);
   } catch (error) {
     console.error('Free plan activation error:', error);
+    const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
     const redirectUrl = `https://${shopDomain}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=error`;
     res.redirect(redirectUrl);
   }
@@ -722,8 +725,8 @@ app.get('/billing/subscribe', (req, res, next) => {
     
     // Store charge in database
     await pool.query(
-      'INSERT INTO charges (shop, charge_id, plan_type, status, amount) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (charge_id) DO UPDATE SET status = EXCLUDED.status',
-      [shopDomain, charge.id.toString(), 'subscription', 'pending', charge.price]
+      'INSERT INTO charges (shop, charge_id, type, status, amount) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (charge_id) DO UPDATE SET status = EXCLUDED.status',
+      [shopDomain, charge.id.toString(), 'recurring', 'pending', charge.price]
     );
     
     // Redirect to Shopify's confirmation URL using a script to handle iframe
@@ -792,7 +795,7 @@ app.get('/billing/lifetime', (req, res, next) => {
     
     // Store charge in database
     await pool.query(
-      'INSERT INTO charges (shop, charge_id, plan_type, status, amount) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (charge_id) DO UPDATE SET status = EXCLUDED.status',
+      'INSERT INTO charges (shop, charge_id, type, status, amount) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (charge_id) DO UPDATE SET status = EXCLUDED.status',
       [shopDomain, charge.id.toString(), 'lifetime', 'pending', charge.price]
     );
     
