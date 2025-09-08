@@ -26,6 +26,9 @@ function Home() {
   const [success, setSuccess] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [appBridge, setAppBridge] = useState(null);
+  const [themeInstallLoading, setThemeInstallLoading] = useState(false);
+  const [themeInstallSuccess, setThemeInstallSuccess] = useState('');
+  const [themeInstallError, setThemeInstallError] = useState('');
   
   // Always call useAppBridge hook, but handle errors gracefully
   let app = null;
@@ -36,6 +39,24 @@ function Home() {
   }
   
   const isEmbedded = isClient && (!!appBridge || !!app) && typeof window !== 'undefined' && !!window.apiCall;
+
+  // Derive shop from host when Shopify opens app with only host param
+  const deriveShopFromHost = (hostParam) => {
+    try {
+      if (!hostParam || typeof window === 'undefined') return null;
+      let base = hostParam.replace(/-/g, '+').replace(/_/g, '/');
+      while (base.length % 4) base += '=';
+      const decoded = atob(base);
+      // decoded looks like: admin.shopify.com/store/<store>[?...]
+      const match = decoded.match(/\/store\/([a-zA-Z0-9-]+)/);
+      if (match && match[1]) {
+        return match[1]; // use store handle; backend normalizes to .myshopify.com
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  };
   
   useEffect(() => {
     setIsClient(true);
@@ -44,22 +65,40 @@ function Home() {
     // Check shop installation status when app loads
     const checkShopStatus = async () => {
       const urlParams = new URLSearchParams(window.location.search);
-      const shop = urlParams.get('shop');
+      const shopFromUrl = urlParams.get('shop');
       const host = urlParams.get('host');
       const allParams = Object.fromEntries(urlParams.entries());
+
+      // Determine effective shop: URL param or derive from host
+      let effectiveShop = shopFromUrl;
+      if (!effectiveShop && host) {
+        const derived = deriveShopFromHost(host);
+        if (derived) {
+          effectiveShop = derived;
+          // Persist derived shop in URL without reloading
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.set('shop', derived);
+          window.history.replaceState({}, '', newUrl.toString());
+          console.log('🧭 [FRONTEND] Derived shop from host and persisted to URL:', {
+            host,
+            decodedShop: derived,
+            newUrl: newUrl.toString()
+          });
+        }
+      }
       
       console.log('🔍 [FRONTEND] Installation Check Started:', {
-        shop,
+        shop: effectiveShop || '',
         host,
         allUrlParams: allParams,
         currentUrl: window.location.href,
         timestamp: new Date().toISOString()
       });
       
-      if (shop) {
-        console.log('✅ [FRONTEND] Shop parameter found, checking status:', shop);
+      if (effectiveShop) {
+        console.log('✅ [FRONTEND] Shop parameter available, checking status:', effectiveShop);
         try {
-          const statusUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/shop/status?shop=${shop}`;
+          const statusUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/shop/status?shop=${effectiveShop}`;
           console.log('📡 [FRONTEND] Calling shop status endpoint:', statusUrl);
           
           const response = await axios.get(statusUrl);
@@ -123,12 +162,12 @@ function Home() {
             error: error.message,
             response: error.response?.data,
             status: error.response?.status,
-            shop
+            shop: effectiveShop
           });
           // Continue loading the app even if status check fails
         }
       } else {
-        console.log('⚠️ [FRONTEND] No shop parameter found in URL:', {
+        console.log('⚠️ [FRONTEND] No shop parameter found in URL and unable to derive from host:', {
           allParams,
           currentUrl: window.location.href
         });
@@ -159,12 +198,30 @@ function Home() {
   const checkBillingStatus = async () => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
+      const host = urlParams.get('host');
       const shopParam = urlParams.get('shop');
+
+      // Derive shop from host if missing
+      let effectiveShop = shopParam;
+      if (!effectiveShop && host) {
+        const derived = deriveShopFromHost(host);
+        if (derived) {
+          effectiveShop = derived;
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.set('shop', derived);
+          window.history.replaceState({}, '', newUrl.toString());
+          console.log('🧭 [FRONTEND] Derived shop from host for billing check and persisted to URL:', {
+            host,
+            decodedShop: derived,
+            newUrl: newUrl.toString()
+          });
+        }
+      }
       
-      if (!shopParam) return; // Skip if no shop parameter
+      if (!effectiveShop) return; // Skip if no shop parameter
       
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://order-tracking-pro.onrender.com';
-      const requestUrl = `${backendUrl}/billing/status?shop=${encodeURIComponent(shopParam)}`;
+      const requestUrl = `${backendUrl}/billing/status?shop=${encodeURIComponent(effectiveShop)}`;
       
       let response;
       if (isEmbedded && window.apiCall) {
@@ -177,17 +234,17 @@ function Home() {
         response = await axios.get(requestUrl);
       }
       
-      if (!response.data.hasActiveBilling) {
+      if (!response.data.hasActivePlan) {
         // Redirect to pricing page if no active billing (preserve host)
-        const host = urlParams.get('host');
-        const params = new URLSearchParams({ shop: shopParam });
+        const params = new URLSearchParams({ shop: effectiveShop });
         if (host) params.set('host', host);
         const pricingUrl = `/pricing?${params.toString()}`;
         
         console.log('💳 [FRONTEND] No active billing, redirecting to pricing:', {
           pricingUrl,
           isEmbedded,
-          hasAppBridge: !!app
+          hasAppBridge: !!app,
+          billingResponse: response.data
         });
         
         // Use App Bridge redirect for embedded apps, fallback to window.location for standalone
@@ -206,6 +263,56 @@ function Home() {
        // Continue without redirect on error to avoid breaking the app
      }
    };
+
+  const handleKeyPress = (event) => {
+    if (event.key === 'Enter') {
+      handleFetchTracking();
+    }
+  };
+
+  const handleInstallThemeBlock = async () => {
+    setThemeInstallLoading(true);
+    setThemeInstallError('');
+    setThemeInstallSuccess('');
+
+    try {
+      // Get shop domain from URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const shop = urlParams.get('shop') || window.location.hostname;
+
+      const requestUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/install-theme-block?shop=${encodeURIComponent(shop)}`;
+      console.log('Installing theme block for shop:', shop);
+
+      let response;
+
+      if (isEmbedded && appBridge) {
+        const fetchResponse = await fetch(requestUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        const data = await fetchResponse.json();
+        response = {
+          data: data,
+          status: fetchResponse.status
+        };
+      } else {
+        response = await axios.post(requestUrl);
+      }
+
+      if (response.status === 200) {
+        setThemeInstallSuccess('Tracking widget successfully installed in your theme! You can now customize it in the theme editor.');
+      } else {
+        throw new Error(response.data?.error || 'Installation failed');
+      }
+    } catch (err) {
+      console.error('Error installing theme block:', err);
+      setThemeInstallError(err.response?.data?.error || err.message || 'Failed to install theme block. Please try again.');
+    } finally {
+      setThemeInstallLoading(false);
+    }
+  };
 
   const handleFetchTracking = async () => {
     if (!orderId.trim()) {
@@ -258,62 +365,36 @@ function Home() {
     }
   };
 
-  const handleKeyPress = (event) => {
-    if (event.key === 'Enter') {
-      handleFetchTracking();
-    }
-  };
-
-
-
   const renderTrackingResults = () => {
-    if (!trackingData) {
-      return null;
-    }
-
-    // Handle error response
-    if (trackingData.error) {
-      return (
-        <Banner status="critical">
-          <p>Error: {trackingData.error}</p>
-        </Banner>
-      );
-    }
-
-    // Handle tracking response
-    if (trackingData.tracking_number === null) {
-      return (
-        <Banner status="info">
-          <p>No tracking information available for this order</p>
-        </Banner>
-      );
-    }
-
-    // Display tracking information
-    if (trackingData.tracking_number) {
-      
-      return (
-        <Card sectioned>
-          <BlockStack gap="400">
-            <Text variant="headingMd" as="h2">Tracking Information</Text>
-            <TextContainer>
-              <p><strong>Tracking Number:</strong> {trackingData.tracking_number}</p>
-              {trackingData.tracking_company && (
-                <p><strong>Shipping Company:</strong> {trackingData.tracking_company}</p>
-              )}
-              {trackingData.tracking_url && (
-                <p><strong>Track Package:</strong> <a href={trackingData.tracking_url} target="_blank" rel="noopener noreferrer">Click here to track</a></p>
-              )}
-            </TextContainer>
-          </BlockStack>
-        </Card>
-      );
-    }
+    if (!trackingData) return null;
 
     return (
-      <Banner status="warning">
-        <p>Unable to display tracking information</p>
-      </Banner>
+      <Card sectioned>
+        <BlockStack gap="400">
+          <Text variant="headingMd" as="h2">Tracking Information</Text>
+          <TextContainer>
+            <p><strong>Order ID:</strong> {trackingData.order_id}</p>
+            <p><strong>Status:</strong> {trackingData.status}</p>
+            {trackingData.tracking_number && (
+              <p><strong>Tracking Number:</strong> {trackingData.tracking_number}</p>
+            )}
+            {trackingData.carrier && (
+              <p><strong>Carrier:</strong> {trackingData.carrier}</p>
+            )}
+            {trackingData.estimated_delivery && (
+              <p><strong>Estimated Delivery:</strong> {trackingData.estimated_delivery}</p>
+            )}
+            {trackingData.tracking_url && (
+              <p>
+                <strong>Tracking URL:</strong>{' '}
+                <a href={trackingData.tracking_url} target="_blank" rel="noopener noreferrer">
+                  View Tracking Details
+                </a>
+              </p>
+            )}
+          </TextContainer>
+        </BlockStack>
+      </Card>
     );
   };
 
@@ -326,30 +407,33 @@ function Home() {
         {/* Theme Installation Section */}
         <Card sectioned>
           <BlockStack gap="400">
-            <Text variant="headingMd" as="h2">Theme Installation Instructions</Text>
+            <Text variant="headingMd" as="h2">Theme Installation</Text>
             <TextContainer>
-              <p>Follow these steps to add the Order Tracking Widget to your theme:</p>
+              <p>Install the tracking widget block in your theme to allow customers to track their orders directly on your storefront.</p>    
             </TextContainer>
-            <div style={{ backgroundColor: '#f6f6f7', padding: '16px', borderRadius: '8px', marginTop: '12px' }}>
-              <ol style={{ margin: 0, paddingLeft: '20px' }}>
-                <li>Go to your Shopify Admin → Online Store → Themes</li>
-                <li>Click "Customize" on your active theme</li>
-                <li>Navigate to the page where you want to add the tracking widget</li>
-                <li>Click "Add section" or "Add block" (depending on your theme)</li>
-                <li>Look for "Order Tracking Widget" in the Apps section</li>
-                <li>Add the widget and customize its settings as needed</li>
-                <li>Click "Save" to publish your changes</li>
-              </ol>
-            </div>
-            <TextContainer>
-              <p style={{ marginTop: '12px', fontSize: '14px', color: '#637381' }}>
-                <strong>Note:</strong> The Order Tracking Widget will appear in the Apps section of your theme editor after the app is installed.
-              </p>
-            </TextContainer>
+
+            <Button
+              onClick={handleInstallThemeBlock}
+              loading={themeInstallLoading}
+              disabled={themeInstallLoading}
+            >
+              {themeInstallLoading ? 'Installing...' : 'Install Tracking Widget in Theme'}
+            </Button>
           </BlockStack>
         </Card>
 
+        {/* Theme Installation Success/Error Messages */}
+        {themeInstallSuccess && (
+          <Banner status="success" onDismiss={() => setThemeInstallSuccess('')}>
+            <p>{themeInstallSuccess}</p>
+          </Banner>
+        )}
 
+        {themeInstallError && (
+          <Banner status="critical" onDismiss={() => setThemeInstallError('')}>
+            <p>{themeInstallError}</p>
+          </Banner>
+        )}
 
         {/* Order Tracking Section */}
         <Card sectioned>
@@ -364,7 +448,7 @@ function Home() {
                 placeholder="Enter order ID (e.g., 1234567890)"
                 autoComplete="off"
               />
-              
+
               <Button
                 primary
                 onClick={handleFetchTracking}
@@ -377,12 +461,6 @@ function Home() {
           </BlockStack>
         </Card>
       </BlockStack>
-
-      {success && (
-        <Banner status="success" onDismiss={() => setSuccess('')}>
-          <p>{success}</p>
-        </Banner>
-      )}
 
       {error && (
         <Banner status="critical" onDismiss={() => setError('')}>
@@ -402,9 +480,9 @@ function Home() {
       {renderTrackingResults()}
     </Page>
   );
+
 }
 
-// Wrap the Home component with ErrorBoundary
 function HomeWithErrorBoundary() {
   return (
     <ErrorBoundary>
