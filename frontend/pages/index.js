@@ -26,9 +26,6 @@ function Home() {
   const [success, setSuccess] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [appBridge, setAppBridge] = useState(null);
-  const [themeInstallLoading, setThemeInstallLoading] = useState(false);
-  const [themeInstallSuccess, setThemeInstallSuccess] = useState('');
-  const [themeInstallError, setThemeInstallError] = useState('');
   
   // Always call useAppBridge hook, but handle errors gracefully
   let app = null;
@@ -264,56 +261,6 @@ function Home() {
      }
    };
 
-  const handleKeyPress = (event) => {
-    if (event.key === 'Enter') {
-      handleFetchTracking();
-    }
-  };
-
-  const handleInstallThemeBlock = async () => {
-    setThemeInstallLoading(true);
-    setThemeInstallError('');
-    setThemeInstallSuccess('');
-
-    try {
-      // Get shop domain from URL parameters
-      const urlParams = new URLSearchParams(window.location.search);
-      const shop = urlParams.get('shop') || window.location.hostname;
-
-      const requestUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/install-theme-block?shop=${encodeURIComponent(shop)}`;
-      console.log('Installing theme block for shop:', shop);
-
-      let response;
-
-      if (isEmbedded && appBridge) {
-        const fetchResponse = await fetch(requestUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        const data = await fetchResponse.json();
-        response = {
-          data: data,
-          status: fetchResponse.status
-        };
-      } else {
-        response = await axios.post(requestUrl);
-      }
-
-      if (response.status === 200) {
-        setThemeInstallSuccess('Tracking widget successfully installed in your theme! You can now customize it in the theme editor.');
-      } else {
-        throw new Error(response.data?.error || 'Installation failed');
-      }
-    } catch (err) {
-      console.error('Error installing theme block:', err);
-      setThemeInstallError(err.response?.data?.error || err.message || 'Failed to install theme block. Please try again.');
-    } finally {
-      setThemeInstallLoading(false);
-    }
-  };
-
   const handleFetchTracking = async () => {
     if (!orderId.trim()) {
       setError('Please enter an Order ID');
@@ -365,33 +312,24 @@ function Home() {
     }
   };
 
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleFetchTracking();
+    }
+  };
+
   const renderTrackingResults = () => {
     if (!trackingData) return null;
-
+    
     return (
       <Card sectioned>
         <BlockStack gap="400">
           <Text variant="headingMd" as="h2">Tracking Information</Text>
           <TextContainer>
             <p><strong>Order ID:</strong> {trackingData.order_id}</p>
-            <p><strong>Status:</strong> {trackingData.status}</p>
-            {trackingData.tracking_number && (
-              <p><strong>Tracking Number:</strong> {trackingData.tracking_number}</p>
-            )}
-            {trackingData.carrier && (
-              <p><strong>Carrier:</strong> {trackingData.carrier}</p>
-            )}
-            {trackingData.estimated_delivery && (
-              <p><strong>Estimated Delivery:</strong> {trackingData.estimated_delivery}</p>
-            )}
-            {trackingData.tracking_url && (
-              <p>
-                <strong>Tracking URL:</strong>{' '}
-                <a href={trackingData.tracking_url} target="_blank" rel="noopener noreferrer">
-                  View Tracking Details
-                </a>
-              </p>
-            )}
+            <p><strong>Tracking Number:</strong> {trackingData.tracking_number || 'Not available'}</p>
+            <p><strong>Carrier:</strong> {trackingData.carrier || 'Not specified'}</p>
+            <p><strong>Status:</strong> {trackingData.status || 'Unknown'}</p>
           </TextContainer>
         </BlockStack>
       </Card>
@@ -399,88 +337,88 @@ function Home() {
   };
 
   return (
-    <Page
-      title="Order Tracking"
-      subtitle="Look up tracking information for customer orders"
-    >
-      <BlockStack gap="500">
-        {/* Theme Installation Section */}
-        <Card sectioned>
-          <BlockStack gap="400">
-            <Text variant="headingMd" as="h2">Theme Installation</Text>
-            <TextContainer>
-              <p>Install the tracking widget block in your theme to allow customers to track their orders directly on your storefront.</p>    
-            </TextContainer>
+    <Page 
+      title="Order Tracking" 
+      subtitle="Look up tracking information for customer orders" 
+    > 
+      <BlockStack gap="500"> 
+        {/* Theme Installation Section */} 
+        <Card sectioned> 
+          <BlockStack gap="400"> 
+            <Text variant="headingMd" as="h2">Theme Installation Instructions</Text> 
+            <TextContainer> 
+              <p>Follow these steps to add the Order Tracking Widget to your theme:</p> 
+            </TextContainer> 
+            <div style={{ backgroundColor: '#f6f6f7', padding: '16px', borderRadius: '8px', marginTop: '12px' }}> 
+              <ol style={{ margin: 0, paddingLeft: '20px' }}> 
+                <li>Go to your Shopify Admin → Online Store → Themes</li> 
+                <li>Click "Customize" on your active theme</li> 
+                <li>Navigate to the page where you want to add the tracking widget</li> 
+                <li>Click "Add section" or "Add block" (depending on your theme)</li> 
+                <li>Look for "Order Tracking Widget" in the Apps section</li> 
+                <li>Add the widget and customize its settings as needed</li> 
+                <li>Click "Save" to publish your changes</li> 
+              </ol> 
+            </div> 
+            <TextContainer> 
+              <p style={{ marginTop: '12px', fontSize: '14px', color: '#637381' }}> 
+                <strong>Note:</strong> The Order Tracking Widget will appear in the Apps section of your theme editor after the app is installed. 
+              </p> 
+            </TextContainer> 
+          </BlockStack> 
+        </Card> 
 
-            <Button
-              onClick={handleInstallThemeBlock}
-              loading={themeInstallLoading}
-              disabled={themeInstallLoading}
-            >
-              {themeInstallLoading ? 'Installing...' : 'Install Tracking Widget in Theme'}
-            </Button>
-          </BlockStack>
-        </Card>
+        {/* Order Tracking Section */} 
+        <Card sectioned> 
+          <BlockStack gap="400"> 
+            <Text variant="headingMd" as="h2">Test Order Tracking</Text> 
+            <FormLayout> 
+              <TextField 
+                label="Order ID" 
+                value={orderId} 
+                onChange={setOrderId} 
+                onKeyPress={handleKeyPress} 
+                placeholder="Enter order ID (e.g., 1234567890)" 
+                autoComplete="off" 
+              /> 
+              
+              <Button 
+                primary 
+                onClick={handleFetchTracking} 
+                loading={loading} 
+                disabled={!orderId.trim()} 
+              > 
+                {loading ? 'Fetching...' : 'Fetch Tracking'} 
+              </Button> 
+            </FormLayout> 
+          </BlockStack> 
+        </Card> 
+      </BlockStack> 
 
-        {/* Theme Installation Success/Error Messages */}
-        {themeInstallSuccess && (
-          <Banner status="success" onDismiss={() => setThemeInstallSuccess('')}>
-            <p>{themeInstallSuccess}</p>
-          </Banner>
-        )}
+      {success && ( 
+        <Banner status="success" onDismiss={() => setSuccess('')}> 
+          <p>{success}</p> 
+        </Banner> 
+      )} 
 
-        {themeInstallError && (
-          <Banner status="critical" onDismiss={() => setThemeInstallError('')}>
-            <p>{themeInstallError}</p>
-          </Banner>
-        )}
+      {error && ( 
+        <Banner status="critical" onDismiss={() => setError('')}> 
+          <p>{error}</p> 
+        </Banner> 
+      )} 
 
-        {/* Order Tracking Section */}
-        <Card sectioned>
-          <BlockStack gap="400">
-            <Text variant="headingMd" as="h2">Test Order Tracking</Text>
-            <FormLayout>
-              <TextField
-                label="Order ID"
-                value={orderId}
-                onChange={setOrderId}
-                onKeyPress={handleKeyPress}
-                placeholder="Enter order ID (e.g., 1234567890)"
-                autoComplete="off"
-              />
+      {loading && ( 
+        <Card sectioned> 
+          <BlockStack align="center"> 
+            <Spinner size="small" /> 
+            <p>Loading tracking information...</p> 
+          </BlockStack> 
+        </Card> 
+      )} 
 
-              <Button
-                primary
-                onClick={handleFetchTracking}
-                loading={loading}
-                disabled={!orderId.trim()}
-              >
-                {loading ? 'Fetching...' : 'Fetch Tracking'}
-              </Button>
-            </FormLayout>
-          </BlockStack>
-        </Card>
-      </BlockStack>
-
-      {error && (
-        <Banner status="critical" onDismiss={() => setError('')}>
-          <p>{error}</p>
-        </Banner>
-      )}
-
-      {loading && (
-        <Card sectioned>
-          <BlockStack align="center">
-            <Spinner size="small" />
-            <p>Loading tracking information...</p>
-          </BlockStack>
-        </Card>
-      )}
-
-      {renderTrackingResults()}
-    </Page>
+      {renderTrackingResults()} 
+    </Page> 
   );
-
 }
 
 function HomeWithErrorBoundary() {

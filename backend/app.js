@@ -107,13 +107,39 @@ const hasActiveBilling = async (shop) => {
     // Normalize shop domain format
     const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
     
+    console.log('🔍 [BACKEND] Checking active billing for shop:', {
+      originalShop: shop,
+      normalizedShop: shopDomain,
+      timestamp: new Date().toISOString()
+    });
+    
     const result = await pool.query(
       'SELECT * FROM charges WHERE shop = $1 AND status = $2 ORDER BY created_at DESC LIMIT 1',
       [shopDomain, 'active']
     );
+    
+    console.log('💳 [BACKEND] Billing query result:', {
+      shopDomain,
+      foundActiveCharges: result.rows.length > 0,
+      chargeCount: result.rows.length,
+      latestCharge: result.rows.length > 0 ? {
+        chargeId: result.rows[0].charge_id,
+        type: result.rows[0].type,
+        status: result.rows[0].status,
+        amount: result.rows[0].amount,
+        createdAt: result.rows[0].created_at
+      } : null,
+      timestamp: new Date().toISOString()
+    });
+    
     return result.rows.length > 0;
   } catch (error) {
-    console.error('Error checking billing status:', error);
+    console.error('❌ [BACKEND] Error checking billing status:', {
+      shop,
+      errorMessage: error.message,
+      errorStack: error.stack,
+      timestamp: new Date().toISOString()
+    });
     return false;
   }
 };
@@ -659,7 +685,7 @@ app.get('/shop/status', async (req, res) => {
         }
       });
       
-      console.log('✅ [BACKEND] Access token validation successful - shop is installed:', {
+      console.log('✅ [BACKEND] Access token validation successful - checking billing status:', {
         shopDomain,
         shopInfo: {
           name: validationResponse.data.shop?.name,
@@ -668,10 +694,20 @@ app.get('/shop/status', async (req, res) => {
         timestamp
       });
       
+      // Check billing status
+      const hasActivePlan = await hasActiveBilling(shopDomain);
+      
+      console.log('💳 [BACKEND] Billing status check result:', {
+        shopDomain,
+        hasActiveBilling: hasActivePlan,
+        timestamp
+      });
+      
       return res.json({ 
         status: 'installed',
         installed: true, 
-        needsAuth: false 
+        needsAuth: false,
+        hasActiveBilling: hasActivePlan
       });
     } catch (tokenError) {
       console.error('🚫 [BACKEND] Access token validation failed - token expired/invalid:', {
@@ -952,30 +988,79 @@ app.post('/install-theme-block', async (req, res) => {
 // Billing endpoints
 app.get('/billing/free', async (req, res) => {
   const { shop, host } = req.query;
+  const allParams = req.query;
+  const timestamp = new Date().toISOString();
+  
+  console.log('🆓 [BACKEND] Free Plan Selection Started:', {
+    shop,
+    host,
+    allParams,
+    timestamp,
+    userAgent: req.get('User-Agent'),
+    referer: req.get('Referer')
+  });
   
   if (!shop) {
+    console.error('❌ [BACKEND] Free Plan Error: Missing shop parameter:', {
+      allParams,
+      timestamp
+    });
     return res.status(400).json({ error: 'Shop parameter is required' });
   }
   
   try {
     const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
+    const chargeId = `free_${Date.now()}`;
+    
+    console.log('💾 [BACKEND] Storing free plan in database:', {
+      shopDomain,
+      chargeId,
+      planType: 'free',
+      status: 'active',
+      amount: 0.00,
+      timestamp
+    });
     
     // Store free plan in database
-    await pool.query(
-      'INSERT INTO charges (shop, charge_id, type, status, amount) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (charge_id) DO UPDATE SET status = EXCLUDED.status',
-      [shopDomain, `free_${Date.now()}`, 'free', 'active', 0.00]
+    const insertResult = await pool.query(
+      'INSERT INTO charges (shop, charge_id, type, status, amount) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (charge_id) DO UPDATE SET status = EXCLUDED.status RETURNING *',
+      [shopDomain, chargeId, 'free', 'active', 0.00]
     );
     
-    // Redirect back to frontend app with success
+    console.log('✅ [BACKEND] Free plan stored successfully:', {
+      shopDomain,
+      insertedRecord: insertResult.rows[0],
+      rowsAffected: insertResult.rowCount,
+      timestamp
+    });
+    
+    // Redirect back to main app with success
     const frontendUrl = process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app';
-    const redirectUrl = new URL('/pricing', frontendUrl);
+    const redirectUrl = new URL('/', frontendUrl);
     redirectUrl.searchParams.set('shop', shopDomain);
     redirectUrl.searchParams.set('billing', 'success');
     redirectUrl.searchParams.set('plan', 'free');
+    redirectUrl.searchParams.set('installed', 'true');
     if (host) {
       redirectUrl.searchParams.set('host', host);
     }
-    res.redirect(redirectUrl.toString());
+    
+    console.log('✅ [BACKEND] Free plan activated successfully, redirecting to main app:', {
+      shop: shopDomain,
+      redirectUrl: redirectUrl.toString(),
+      timestamp: new Date().toISOString()
+    });
+    
+    // Use script-based redirect to break out of iframe if embedded
+    res.send(`
+      <script>
+        if (window.top !== window.self) {
+          window.top.location.href = "${redirectUrl.toString()}";
+        } else {
+          window.location.href = "${redirectUrl.toString()}";
+        }
+      </script>
+    `);
   } catch (error) {
     console.error('Free plan activation error:', error);
     const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
@@ -986,7 +1071,24 @@ app.get('/billing/free', async (req, res) => {
     if (host) {
       redirectUrl.searchParams.set('host', host);
     }
-    res.redirect(redirectUrl.toString());
+    
+    console.log('❌ [BACKEND] Free plan activation failed, redirecting to pricing:', {
+      shop: shopDomain,
+      error: error.message,
+      redirectUrl: redirectUrl.toString(),
+      timestamp: new Date().toISOString()
+    });
+    
+    // Use script-based redirect to break out of iframe if embedded
+    res.send(`
+      <script>
+        if (window.top !== window.self) {
+          window.top.location.href = "${redirectUrl.toString()}";
+        } else {
+          window.location.href = "${redirectUrl.toString()}";
+        }
+      </script>
+    `);
   }
 });
 
@@ -994,7 +1096,7 @@ app.get('/billing/subscribe', (req, res, next) => {
   // Skip session token verification for billing redirects
   next();
 }, async (req, res) => {
-  const { shop } = req.query;
+  const { shop, host } = req.query;
   
   if (!shop) {
     return res.status(400).json({ error: 'Shop parameter is required' });
@@ -1013,12 +1115,20 @@ app.get('/billing/subscribe', (req, res, next) => {
     const { access_token } = shopResult.rows[0];
     const backendUrl = process.env.BACKEND_URL || 'https://order-tracking-pro.onrender.com';
     
+    // Build return URL with host parameter if present
+    const returnUrl = new URL(`${backendUrl}/billing/callback`);
+    returnUrl.searchParams.set('shop', shopDomain);
+    returnUrl.searchParams.set('type', 'subscription');
+    if (host) {
+      returnUrl.searchParams.set('host', host);
+    }
+    
     // Create recurring application charge
     const chargeData = {
       recurring_application_charge: {
         name: 'Order Tracking Pro - Monthly',
         price: 9.99,
-        return_url: `${backendUrl}/billing/callback?shop=${shopDomain}&type=subscription`,
+        return_url: returnUrl.toString(),
         test: process.env.NODE_ENV !== 'production'
       }
     };
@@ -1064,7 +1174,7 @@ app.get('/billing/lifetime', (req, res, next) => {
   // Skip session token verification for billing redirects
   next();
 }, async (req, res) => {
-  const { shop } = req.query;
+  const { shop, host } = req.query;
   
   if (!shop) {
     return res.status(400).json({ error: 'Shop parameter is required' });
@@ -1083,12 +1193,20 @@ app.get('/billing/lifetime', (req, res, next) => {
     const { access_token } = shopResult.rows[0];
     const backendUrl = process.env.BACKEND_URL || 'https://order-tracking-pro.onrender.com';
     
+    // Build return URL with host parameter if present
+    const returnUrl = new URL(`${backendUrl}/billing/callback`);
+    returnUrl.searchParams.set('shop', shopDomain);
+    returnUrl.searchParams.set('type', 'lifetime');
+    if (host) {
+      returnUrl.searchParams.set('host', host);
+    }
+    
     // Create one-time application charge for lifetime plan
     const chargeData = {
       application_charge: {
         name: 'Order Tracking Pro - Lifetime',
         price: 99.99,
-        return_url: `${backendUrl}/billing/callback?shop=${shopDomain}&type=lifetime`,
+        return_url: returnUrl.toString(),
         test: process.env.NODE_ENV !== 'production'
       }
     };
@@ -1112,8 +1230,18 @@ app.get('/billing/lifetime', (req, res, next) => {
       [shopDomain, charge.id.toString(), 'lifetime', 'pending', charge.price]
     );
     
-    // Redirect to Shopify's confirmation URL
-    res.redirect(charge.confirmation_url);
+    // Redirect to Shopify's confirmation URL using a script to handle iframe
+    const confirmationUrl = charge.confirmation_url;
+    
+    res.send(`
+      <script>
+        if (window.top !== window.self) {
+          window.top.location.href = "${confirmationUrl}";
+        } else {
+          window.location.href = "${confirmationUrl}";
+        }
+      </script>
+    `);
   } catch (error) {
     console.error('Lifetime charge creation error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to create lifetime charge' });
@@ -1122,7 +1250,16 @@ app.get('/billing/lifetime', (req, res, next) => {
 
 // Billing callback endpoint
 app.get('/billing/callback', async (req, res) => {
-  const { shop, charge_id, type } = req.query;
+  const { shop, charge_id, type, host } = req.query;
+  
+  console.log('💳 [BACKEND] Billing callback received:', {
+    shop,
+    charge_id,
+    type,
+    host,
+    allParams: req.query,
+    timestamp: new Date().toISOString()
+  });
   
   if (!shop || !charge_id) {
     return res.status(400).json({ error: 'Missing required parameters' });
@@ -1189,25 +1326,93 @@ app.get('/billing/callback', async (req, res) => {
         );
       }
       
-      // Redirect to success page
-      const successUrl = `https://${shopDomain}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=success`;
-      res.redirect(successUrl);
+      // Redirect to frontend app with success status
+      const frontendUrl = process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app';
+      const successUrl = new URL('/pricing', frontendUrl);
+      successUrl.searchParams.set('shop', shopDomain);
+      successUrl.searchParams.set('billing', 'success');
+      successUrl.searchParams.set('plan', type === 'subscription' ? 'monthly' : 'lifetime');
+      if (host) successUrl.searchParams.set('host', host);
+      
+      console.log('✅ [BACKEND] Billing success redirect:', {
+        successUrl: successUrl.toString(),
+        shopDomain,
+        host,
+        planType: type === 'subscription' ? 'monthly' : 'lifetime'
+      });
+      
+      // Use script-based redirect to handle iframe breakout
+      res.send(`
+        <script>
+          if (window.top !== window.self) {
+            window.top.location.href = "${successUrl.toString()}";
+          } else {
+            window.location.href = "${successUrl.toString()}";
+          }
+        </script>
+      `);
     } else if (charge.status === 'declined') {
       // Redirect to pricing page with error
       const frontendUrl = process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app';
-      const errorUrl = `${frontendUrl}?shop=${shopDomain}&billing=declined`;
-      res.redirect(errorUrl);
+      const errorUrl = new URL('/pricing', frontendUrl);
+      errorUrl.searchParams.set('shop', shopDomain);
+      errorUrl.searchParams.set('billing', 'declined');
+      if (host) errorUrl.searchParams.set('host', host);
+      
+      // Use script-based redirect to handle iframe breakout
+      res.send(`
+        <script>
+          if (window.top !== window.self) {
+            window.top.location.href = "${errorUrl.toString()}";
+          } else {
+            window.location.href = "${errorUrl.toString()}";
+          }
+        </script>
+      `);
     } else {
       // Handle other statuses
       const frontendUrl = process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app';
-      const errorUrl = `${frontendUrl}?shop=${shopDomain}&billing=error&status=${charge.status}`;
-      res.redirect(errorUrl);
+      const errorUrl = new URL('/pricing', frontendUrl);
+      errorUrl.searchParams.set('shop', shopDomain);
+      errorUrl.searchParams.set('billing', 'error');
+      errorUrl.searchParams.set('status', charge.status);
+      if (host) errorUrl.searchParams.set('host', host);
+      
+      // Use script-based redirect to handle iframe breakout
+      res.send(`
+        <script>
+          if (window.top !== window.self) {
+            window.top.location.href = "${errorUrl.toString()}";
+          } else {
+            window.location.href = "${errorUrl.toString()}";
+          }
+        </script>
+      `);
     }
   } catch (error) {
-    console.error('Billing callback error:', error.response?.data || error.message);
+    console.error('💥 [BACKEND] Billing callback error:', {
+      error: error.response?.data || error.message,
+      shop,
+      charge_id,
+      type,
+      host
+    });
     const frontendUrl = process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app';
-    const errorUrl = `${frontendUrl}?shop=${shopDomain}&billing=error`;
-    res.redirect(errorUrl);
+    const errorUrl = new URL('/pricing', frontendUrl);
+    errorUrl.searchParams.set('shop', shop || '');
+    errorUrl.searchParams.set('billing', 'error');
+    if (host) errorUrl.searchParams.set('host', host);
+    
+    // Use script-based redirect to handle iframe breakout
+    res.send(`
+      <script>
+        if (window.top !== window.self) {
+          window.top.location.href = "${errorUrl.toString()}";
+        } else {
+          window.location.href = "${errorUrl.toString()}";
+        }
+      </script>
+    `);
   }
 });
 
