@@ -39,7 +39,7 @@ export default function Widget() {
 
       setTrackingData(response.data);
     } catch (err) {
-      console.error('Error fetching tracking:', err);
+      // Avoid logging to console in production
       if (err.response?.status === 404) {
         setError('No tracking found for this order');
       } else {
@@ -57,16 +57,12 @@ export default function Widget() {
   };
 
   const renderTrackingResults = () => {
-    console.log('renderTrackingResults called with trackingData:', trackingData);
-    
     if (!trackingData) {
-      console.log('No tracking data available');
       return null;
     }
 
     // Handle error response
     if (trackingData.error) {
-      console.log('Tracking error:', trackingData.error);
       return (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
           <p className="text-red-800">
@@ -78,7 +74,6 @@ export default function Widget() {
 
     // Handle tracking response
     if (trackingData.tracking_number === null) {
-      console.log('No tracking information available');
       return (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
           <p className="text-yellow-800">
@@ -90,8 +85,6 @@ export default function Widget() {
 
     // Display tracking information
     if (trackingData.tracking_number) {
-      console.log('Rendering tracking info:', trackingData);
-      
       return (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
           <h3 className="text-lg font-semibold text-green-800 mb-3">Tracking Information</h3>
@@ -123,7 +116,6 @@ export default function Widget() {
       );
     }
 
-    console.log('Unexpected tracking data format:', trackingData);
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
         <p className="text-red-800">

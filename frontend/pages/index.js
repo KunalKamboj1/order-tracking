@@ -49,16 +49,12 @@ function Home() {
           const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/shop/status?shop=${shop}`);
           const { status, needsAuth, authUrl } = response.data;
           
-          console.log('Shop status:', status);
-          
           if (needsAuth && (status === 'not_installed' || status === 'pending_oauth')) {
-            console.log('Shop needs OAuth completion, redirecting to:', authUrl);
             // Redirect to complete OAuth flow
             window.location.href = `${process.env.NEXT_PUBLIC_BACKEND_URL}${authUrl}`;
             return;
           }
         } catch (error) {
-          console.error('Failed to check shop status:', error);
           // Continue loading the app even if status check fails
         }
       }
@@ -73,7 +69,6 @@ function Home() {
     if (billingStatus === 'success') {
       setError('');
       setSuccess('Billing successful! Your subscription is now active.');
-      console.log('Billing successful!');
     } else if (billingStatus === 'declined') {
       setSuccess('');
       setError('Billing was declined. Please try again or contact support.');
@@ -112,16 +107,11 @@ function Home() {
         window.location.href = `/pricing?shop=${encodeURIComponent(shopParam)}`;
       }
     } catch (error) {
-       console.error('Error checking billing status:', error);
        // Continue without redirect on error to avoid breaking the app
      }
    };
 
   const handleFetchTracking = async () => {
-    console.log('Order ID entered:', orderId);
-    console.log('Backend URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
-    console.log('Is embedded in Shopify Admin:', isEmbedded);
-    
     if (!orderId.trim()) {
       setError('Please enter an Order ID');
       return;
@@ -138,12 +128,10 @@ function Home() {
       const shop = urlParams.get('shop') || window.location.hostname;
       
       const requestUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/tracking?shop=${encodeURIComponent(shop)}&order_id=${encodeURIComponent(orderId)}`;
-      console.log('Making request to:', requestUrl);
       
       let response;
       
       if (isEmbedded) {
-        console.log('Using apiCall with session token for embedded app');
         try {
           const fetchResponse = await window.apiCall(requestUrl);
           if (!fetchResponse.ok) {
@@ -156,22 +144,14 @@ function Home() {
             headers: fetchResponse.headers
           };
         } catch (sessionError) {
-          console.warn('Session token failed, falling back to axios:', sessionError);
           response = await axios.get(requestUrl);
         }
       } else {
-        console.log('Using axios for standalone app');
         response = await axios.get(requestUrl);
       }
       
-      console.log('Full response:', response);
-      console.log('Response status:', response.status);
-      console.log('Response data:', JSON.stringify(response.data, null, 2));
-      console.log('Response headers:', response.headers);
-
       setTrackingData(response.data);
     } catch (err) {
-      console.error('Error fetching tracking:', err);
       if (err.response?.status === 404) {
         setError('Order not found or no tracking information available');
       } else {
@@ -191,16 +171,12 @@ function Home() {
 
 
   const renderTrackingResults = () => {
-    console.log('renderTrackingResults called with trackingData:', trackingData);
-    
     if (!trackingData) {
-      console.log('No tracking data available');
       return null;
     }
 
     // Handle error response
     if (trackingData.error) {
-      console.log('Tracking error:', trackingData.error);
       return (
         <Banner status="critical">
           <p>Error: {trackingData.error}</p>
@@ -210,7 +186,6 @@ function Home() {
 
     // Handle tracking response
     if (trackingData.tracking_number === null) {
-      console.log('No tracking information available');
       return (
         <Banner status="info">
           <p>No tracking information available for this order</p>
@@ -220,7 +195,6 @@ function Home() {
 
     // Display tracking information
     if (trackingData.tracking_number) {
-      console.log('Rendering tracking info:', trackingData);
       
       return (
         <Card sectioned>
@@ -240,7 +214,6 @@ function Home() {
       );
     }
 
-    console.log('Unexpected tracking data format:', trackingData);
     return (
       <Banner status="warning">
         <p>Unable to display tracking information</p>

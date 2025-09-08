@@ -77,7 +77,6 @@ function PricingPage() {
       // Redirect to backend billing endpoint
       window.location.href = `${backendUrl}/billing/${endpoint}?shop=${encodeURIComponent(shop)}`;
     } catch (err) {
-      console.error('Error initiating billing:', err);
       setError('Failed to initiate billing process. Please try again.');
       setLoading(prev => ({ ...prev, [planType]: false }));
     }

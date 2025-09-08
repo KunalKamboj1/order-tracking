@@ -1,7 +1,6 @@
 import { AppProvider } from '@shopify/polaris';
 import { Provider as AppBridgeProvider } from '@shopify/app-bridge-react';
 import Script from 'next/script';
-import { useEffect } from 'react';
 import '@shopify/polaris/build/esm/styles.css';
 import '../styles/globals.css';
 
@@ -13,21 +12,6 @@ function MyApp({ Component, pageProps }) {
     host: host || '',
     forceRedirect: true,
   };
-
-  // Temporary debug log for host/shop & decoded host
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    const hostParam = params.get('host');
-    const shop = params.get('shop');
-    let decoded = null;
-    try {
-      decoded = hostParam ? atob(hostParam) : null;
-    } catch (e) {
-      console.warn('[Shopify Embed] Failed to decode host:', hostParam, e);
-    }
-    console.log('[Shopify Embed] host:', hostParam, 'decoded:', decoded, 'shop:', shop);
-  }, []);
 
   const AppContent = (
     <>
