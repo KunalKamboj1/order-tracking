@@ -16,6 +16,7 @@ import axios from 'axios';
 import { useAppBridge } from '@shopify/app-bridge-react';
 import { Redirect } from '@shopify/app-bridge/actions';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { safeOAuthRedirect, setupOAuthMessageListener } from '../utils/oauthRedirect';
 
 function Home() {
   const [orderId, setOrderId] = useState('');
@@ -94,18 +95,8 @@ function Home() {
                 hasAppBridge: !!app
               });
               
-              // Use App Bridge redirect for embedded apps, fallback to window.location for standalone
-              if (isEmbedded && app) {
-                console.log('🔗 [FRONTEND] Using App Bridge redirect for embedded context');
-                const redirect = Redirect.create(app);
-                redirect.dispatch(Redirect.Action.REMOTE, {
-                  url: redirectUrl.toString(),
-                  newContext: true
-                });
-              } else {
-                console.log('🌐 [FRONTEND] Using window.location redirect for standalone context');
-                window.location.href = redirectUrl.toString();
-              }
+              // Use safe OAuth redirect that handles iframe breakout
+              safeOAuthRedirect(redirectUrl.toString(), isEmbedded, app);
             } catch (e) {
               console.warn('⚠️ [FRONTEND] URL constructor failed, using fallback:', e.message);
               // Fallback if URL constructor fails due to invalid base
@@ -117,18 +108,8 @@ function Home() {
               
               console.log('🚀 [FRONTEND] Fallback redirect URL:', fallbackUrl);
               
-              // Use App Bridge redirect for embedded apps, fallback to window.location for standalone
-              if (isEmbedded && app) {
-                console.log('🔗 [FRONTEND] Using App Bridge redirect for fallback embedded context');
-                const redirect = Redirect.create(app);
-                redirect.dispatch(Redirect.Action.REMOTE, {
-                  url: fallbackUrl,
-                  newContext: true
-                });
-              } else {
-                console.log('🌐 [FRONTEND] Using window.location redirect for fallback standalone context');
-                window.location.href = fallbackUrl;
-              }
+              // Use safe OAuth redirect that handles iframe breakout
+              safeOAuthRedirect(fallbackUrl, isEmbedded, app);
             }
             return;
           } else {

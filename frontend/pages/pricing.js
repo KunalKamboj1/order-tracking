@@ -13,6 +13,7 @@ import {
 import { useAppBridge } from '@shopify/app-bridge-react';
 import { Redirect } from '@shopify/app-bridge/actions';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { safeOAuthRedirect } from '../utils/oauthRedirect';
 
 function PricingPage() {
   const [loading, setLoading] = useState({ free: false, monthly: false, lifetime: false });
@@ -107,18 +108,8 @@ function PricingPage() {
             hasAppBridge: !!app
           });
           
-          // Use App Bridge redirect for embedded apps, fallback to window.location for standalone
-          if (isEmbedded && app) {
-            console.log('🔗 [PRICING] Using App Bridge redirect for embedded OAuth');
-            const redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.REMOTE, {
-              url: authUrl.toString(),
-              newContext: true
-            });
-          } else {
-            console.log('🌐 [PRICING] Using window.location redirect for standalone OAuth');
-            window.location.href = authUrl.toString();
-          }
+          // Use safe OAuth redirect that handles iframe breakout
+          safeOAuthRedirect(authUrl.toString(), isEmbedded, app);
           return;
         }
       } catch (statusError) {

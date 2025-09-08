@@ -2,9 +2,17 @@ import { AppProvider } from '@shopify/polaris';
 import { Provider as AppBridgeProvider } from '@shopify/app-bridge-react';
 import '@shopify/polaris/build/esm/styles.css';
 import '../styles/globals.css';
+import { useEffect } from 'react';
+import { setupOAuthMessageListener } from '../utils/oauthRedirect';
 
 function MyApp({ Component, pageProps }) {
   const host = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('host');
+  
+  // Setup OAuth message listener for cross-origin iframe handling
+  useEffect(() => {
+    const cleanup = setupOAuthMessageListener();
+    return cleanup;
+  }, []);
   
   const config = {
     apiKey: process.env.NEXT_PUBLIC_SHOPIFY_API_KEY,

@@ -339,7 +339,51 @@ app.get('/auth', (req, res) => {
     timestamp
   });
   
-  res.redirect(authUrl);
+  // Check if request is from embedded context (iframe)
+  const isEmbedded = host || req.get('X-Shopify-Shop-Domain') || 
+                    req.get('Referer')?.includes('admin.shopify.com') ||
+                    req.get('User-Agent')?.includes('Shopify');
+  
+  if (isEmbedded) {
+    // Return HTML page that breaks out of iframe using window.top.location.href
+    console.log('🖼️ [BACKEND] Embedded context detected - returning iframe breakout HTML');
+    
+    const breakoutHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Redirecting to Shopify OAuth...</title>
+  <meta charset="utf-8">
+</head>
+<body>
+  <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+    <h2>Redirecting to Shopify OAuth...</h2>
+    <p>Please wait while we redirect you to complete the installation.</p>
+  </div>
+  
+  <script>
+    // Break out of iframe and redirect at top level
+    console.log('🚀 Breaking out of iframe for OAuth redirect');
+    
+    // Check if we're in an iframe
+    if (window.top !== window.self) {
+      console.log('📱 In iframe - using window.top.location.href');
+      window.top.location.href = '${authUrl}';
+    } else {
+      console.log('🌐 At top level - using window.location.href');
+      window.location.href = '${authUrl}';
+    }
+  </script>
+</body>
+</html>`;
+    
+    res.setHeader('Content-Type', 'text/html');
+    res.send(breakoutHtml);
+  } else {
+    // Normal redirect for non-embedded contexts
+    console.log('🌐 [BACKEND] Non-embedded context - using normal redirect');
+    res.redirect(authUrl);
+  }
 });
 
 // OAuth callback endpoint
