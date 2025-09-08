@@ -319,20 +319,52 @@ function Home() {
   };
 
   const renderTrackingResults = () => {
-    if (!trackingData) return null;
-    
+    if (!trackingData) {
+      return null;
+    }
+
+    // Handle error response
+    if (trackingData.error) {
+      return (
+        <Banner status="critical">
+          <p>Error: {trackingData.error}</p>
+        </Banner>
+      );
+    }
+
+    // Handle tracking response
+    if (trackingData.tracking_number === null) {
+      return (
+        <Banner status="info">
+          <p>No tracking information available for this order</p>
+        </Banner>
+      );
+    }
+
+    // Display tracking information
+    if (trackingData.tracking_number) {
+      return (
+        <Card sectioned>
+          <BlockStack gap="400">
+            <Text variant="headingMd" as="h2">Tracking Information</Text>
+            <TextContainer>
+              <p><strong>Tracking Number:</strong> {trackingData.tracking_number}</p>
+              {trackingData.tracking_company && (
+                <p><strong>Shipping Company:</strong> {trackingData.tracking_company}</p>
+              )}
+              {trackingData.tracking_url && (
+                <p><strong>Track Package:</strong> <a href={trackingData.tracking_url} target="_blank" rel="noopener noreferrer">Click here to track</a></p>
+              )}
+            </TextContainer>
+          </BlockStack>
+        </Card>
+      );
+    }
+
     return (
-      <Card sectioned>
-        <BlockStack gap="400">
-          <Text variant="headingMd" as="h2">Tracking Information</Text>
-          <TextContainer>
-            <p><strong>Order ID:</strong> {trackingData.order_id}</p>
-            <p><strong>Tracking Number:</strong> {trackingData.tracking_number || 'Not available'}</p>
-            <p><strong>Carrier:</strong> {trackingData.carrier || 'Not specified'}</p>
-            <p><strong>Status:</strong> {trackingData.status || 'Unknown'}</p>
-          </TextContainer>
-        </BlockStack>
-      </Card>
+      <Banner status="warning">
+        <p>Unable to display tracking information</p>
+      </Banner>
     );
   };
 
