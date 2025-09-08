@@ -242,12 +242,12 @@ app.get('/', (req, res) => {
 
 // OAuth start endpoint
 app.get('/auth', (req, res) => {
-  const { shop, host, returnUrl } = req.query;
+  const { shop: rawShop, host, returnUrl } = req.query;
   const allParams = req.query;
   const timestamp = new Date().toISOString();
   
   console.log('🚀 [BACKEND] OAuth Start Endpoint Called:', {
-    shop,
+    rawShop,
     host,
     returnUrl,
     allParams,
@@ -257,7 +257,8 @@ app.get('/auth', (req, res) => {
     ip: req.ip
   });
 
-  if (!shop) {
+  // Validate shop parameter exists
+  if (!rawShop) {
     console.error('❌ [BACKEND] OAuth Error: Missing shop parameter:', {
       allParams,
       timestamp
@@ -265,26 +266,67 @@ app.get('/auth', (req, res) => {
     return res.status(400).json({ error: 'Shop parameter is required' });
   }
 
+  // Sanitize shop parameter - extract only the domain part before any query params or fragments
+  let shop = rawShop.trim();
+  // Remove any query parameters or fragments that might be attached
+  shop = shop.split('&')[0].split('?')[0].split('#')[0];
+  
+  // Normalize to .myshopify.com domain
   const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
+  
+  // Validate shop domain format
+  const shopRegex = /^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/;
+  if (!shopRegex.test(shopDomain)) {
+    console.error('❌ [BACKEND] OAuth Error: Invalid shop domain format:', {
+      rawShop,
+      sanitizedShop: shop,
+      shopDomain,
+      timestamp
+    });
+    return res.status(400).json({ error: 'Invalid shop domain format' });
+  }
+
+  // OAuth configuration
   const scopes = 'read_orders,read_products,read_themes,write_themes';
-  const redirectUri = `${process.env.BACKEND_URL || 'https://order-tracking-pro.onrender.com'}/callback`;
+  
+  // Fix redirectUri - ensure no double slashes
+  const backendUrl = (process.env.BACKEND_URL || 'https://order-tracking-pro.onrender.com').replace(/\/$/, '');
+  const redirectUri = `${backendUrl}/callback`;
   
   console.log('🔧 [BACKEND] OAuth Configuration:', {
-    originalShop: shop,
+    rawShop,
+    sanitizedShop: shop,
     normalizedShopDomain: shopDomain,
     scopes,
     redirectUri,
     apiKey: process.env.SHOPIFY_API_KEY ? `${process.env.SHOPIFY_API_KEY.substring(0, 8)}...` : 'NOT_SET'
   });
   
-  // Create signed state with host and returnUrl for preservation
-  const state = createSignedState({ host, returnUrl });
-  console.log('🔐 [BACKEND] Created signed state for preservation:', {
-    host,
-    returnUrl,
+  // Handle state preservation - gracefully handle missing host/returnUrl
+  let stateData = {};
+  
+  if (host && returnUrl) {
+    // Embedded install - preserve host and returnUrl
+    stateData = { host, returnUrl };
+    console.log('🔗 [BACKEND] Embedded install detected - preserving host and returnUrl');
+  } else if (host) {
+    // Has host but no returnUrl - likely embedded but missing returnUrl
+    stateData = { host, returnUrl: `https://${shopDomain}/admin/apps/${process.env.SHOPIFY_API_KEY}` };
+    console.log('🔗 [BACKEND] Embedded install with missing returnUrl - using default app URL');
+  } else {
+    // No host/returnUrl - likely Partner Dashboard install or direct access
+    stateData = { returnUrl: `https://${shopDomain}/admin/apps/${process.env.SHOPIFY_API_KEY}` };
+    console.log('🌐 [BACKEND] Non-embedded install detected - using default app URL');
+  }
+  
+  // Create signed state
+  const state = createSignedState(stateData);
+  console.log('🔐 [BACKEND] Created signed state:', {
+    stateData,
     stateLength: state?.length
   });
 
+  // Build OAuth URL
   const authUrl = `https://${shopDomain}/admin/oauth/authorize?` +
     `client_id=${process.env.SHOPIFY_API_KEY}&` +
     `scope=${encodeURIComponent(scopes)}&` +
@@ -296,6 +338,7 @@ app.get('/auth', (req, res) => {
     shopDomain,
     timestamp
   });
+  
   res.redirect(authUrl);
 });
 
