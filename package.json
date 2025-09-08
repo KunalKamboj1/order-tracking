@@ -14,7 +14,7 @@
     "order-tracking",
     "theme-extension"
   ],
-  "author": "Your Name",
+  "author": "Sachin Josan",
   "license": "MIT",
   "devDependencies": {
     "@shopify/cli": "^3.0.0"

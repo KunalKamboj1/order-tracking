@@ -6,7 +6,7 @@ export default function Document() {
     <Html lang="en">
       <Head>
 
-        <Script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></Script>
+        <Script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" />
         {/* Add Tailwind CSS via CDN for widget page */}
         <script
           dangerouslySetInnerHTML={{
