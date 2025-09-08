@@ -1,6 +1,5 @@
 import { AppProvider } from '@shopify/polaris';
 import { Provider as AppBridgeProvider } from '@shopify/app-bridge-react';
-import Script from 'next/script';
 import '@shopify/polaris/build/esm/styles.css';
 import '../styles/globals.css';
 
@@ -15,7 +14,6 @@ function MyApp({ Component, pageProps }) {
 
   const AppContent = (
     <>
-      <Script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" strategy="afterInteractive" />
       <AppProvider
           i18n={{
             Polaris: {
