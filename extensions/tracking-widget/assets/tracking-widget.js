@@ -63,8 +63,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
       
-      // Handle tracking_number null (no tracking info available)
-      if (data.tracking_number === null) {
+      // Handle new API response format
+      if (!data.found || !data.tracking_data || data.tracking_data.length === 0) {
         showError(resultsContainer, 'No tracking information available for this order.');
         return;
       }
@@ -88,19 +88,55 @@ document.addEventListener('DOMContentLoaded', function() {
     container.style.display = 'block';
     
     let html = '<div class="tracking-widget__success">';
-    html += '<h3>Tracking Information</h3>';
     
-    if (data.tracking_number) {
-      html += `<p><strong>Tracking Number:</strong> ${escapeHtml(data.tracking_number)}</p>`;
-    }
-    
-    if (data.tracking_company) {
-      html += `<p><strong>Carrier:</strong> ${escapeHtml(data.tracking_company)}</p>`;
-    }
-    
-    if (data.tracking_url) {
-      html += `<p><a href="${escapeHtml(data.tracking_url)}" target="_blank" rel="noopener noreferrer" class="tracking-widget__link">View Detailed Tracking</a></p>`;
-    }
+    // Handle new API response format with tracking_data array
+    data.tracking_data.forEach((order, index) => {
+      html += `<h3>Order ${escapeHtml(order.order_name)}</h3>`;
+      html += `<p><strong>Order Date:</strong> ${new Date(order.order_date).toLocaleDateString()}</p>`;
+      html += `<p><strong>Total:</strong> ${escapeHtml(order.currency)} ${escapeHtml(order.total_price)}</p>`;
+      html += `<p><strong>Status:</strong> ${escapeHtml(order.financial_status)} / ${escapeHtml(order.fulfillment_status)}</p>`;
+      
+      if (order.fulfillments && order.fulfillments.length > 0) {
+        html += '<h4>Tracking Information</h4>';
+        order.fulfillments.forEach((fulfillment) => {
+          html += '<div style="margin-bottom: 15px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 5px;">';
+          
+          if (fulfillment.tracking_number) {
+            html += `<p><strong>Tracking Number:</strong> ${escapeHtml(fulfillment.tracking_number)}</p>`;
+          }
+          
+          if (fulfillment.tracking_company) {
+            html += `<p><strong>Carrier:</strong> ${escapeHtml(fulfillment.tracking_company)}</p>`;
+          }
+          
+          html += `<p><strong>Status:</strong> ${escapeHtml(fulfillment.status)}</p>`;
+          
+          if (fulfillment.shipped_date) {
+            html += `<p><strong>Shipped:</strong> ${new Date(fulfillment.shipped_date).toLocaleDateString()}</p>`;
+          }
+          
+          if (fulfillment.line_items && fulfillment.line_items.length > 0) {
+            html += '<p><strong>Items:</strong></p><ul>';
+            fulfillment.line_items.forEach((item) => {
+              html += `<li>${escapeHtml(item.name)} (Qty: ${item.quantity})</li>`;
+            });
+            html += '</ul>';
+          }
+          
+          if (fulfillment.tracking_url) {
+            html += `<p><a href="${escapeHtml(fulfillment.tracking_url)}" target="_blank" rel="noopener noreferrer" class="tracking-widget__link">View Detailed Tracking</a></p>`;
+          }
+          
+          html += '</div>';
+        });
+      } else {
+        html += '<p>No tracking information available for this order.</p>';
+      }
+      
+      if (index < data.tracking_data.length - 1) {
+        html += '<hr style="margin: 20px 0;">';
+      }
+    });
     
     html += '</div>';
     container.innerHTML = html;
