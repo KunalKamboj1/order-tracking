@@ -35,12 +35,12 @@ function PricingPage() {
     if (shopParam) {
       setShop(shopParam);
     }
-+   // Preserve host param for embedded context
-+   const hostParam = urlParams.get('host');
-+   if (hostParam) {
-+     // Store for reuse during redirects
-+     window.__HOST_PARAM__ = hostParam;
-+   }
+    // Preserve host param for embedded context
+    const hostParam = urlParams.get('host');
+    if (hostParam) {
+      // Store for reuse during redirects
+      window.__HOST_PARAM__ = hostParam;
+    }
 
     // Check for billing status from URL
     const billingStatus = urlParams.get('billing');
@@ -81,12 +81,11 @@ function PricingPage() {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
       
       // Redirect to backend billing endpoint
--      window.location.href = `${backendUrl}/billing/${endpoint}?shop=${encodeURIComponent(shop)}`;
-+      const host = window.__HOST_PARAM__ || new URLSearchParams(window.location.search).get('host');
-+      const billingUrl = new URL(`${backendUrl}/billing/${endpoint}`);
-+      billingUrl.searchParams.set('shop', shop);
-+      if (host) billingUrl.searchParams.set('host', host);
-+      window.location.href = billingUrl.toString();
+      const host = window.__HOST_PARAM__ || new URLSearchParams(window.location.search).get('host');
+      const billingUrl = new URL(`${backendUrl}/billing/${endpoint}`);
+      billingUrl.searchParams.set('shop', shop);
+      if (host) billingUrl.searchParams.set('host', host);
+      window.location.href = billingUrl.toString();
     } catch (err) {
       setError('Failed to initiate billing process. Please try again.');
       setLoading(prev => ({ ...prev, [planType]: false }));
