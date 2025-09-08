@@ -37,6 +37,7 @@ export default function Widget() {
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/tracking?shop=${shop}&order_id=${orderId}&public=true`
       );
 
+      console.log('Widget API Response:', response.data);
       setTrackingData(response.data);
     } catch (err) {
       // Avoid logging to console in production
@@ -57,7 +58,9 @@ export default function Widget() {
   };
 
   const renderTrackingResults = () => {
+    console.log('Widget rendering with trackingData:', trackingData);
     if (!trackingData) {
+      console.log('Widget: No trackingData available');
       return null;
     }
 

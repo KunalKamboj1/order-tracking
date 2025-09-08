@@ -300,6 +300,7 @@ function Home() {
         response = await axios.get(requestUrl);
       }
       
+      console.log('API Response:', response.data);
       setTrackingData(response.data);
     } catch (err) {
       if (err.response?.status === 404) {
@@ -319,7 +320,9 @@ function Home() {
   };
 
   const renderTrackingResults = () => {
+    console.log('Rendering with trackingData:', trackingData);
     if (!trackingData) {
+      console.log('No trackingData available');
       return null;
     }
 
@@ -333,7 +336,13 @@ function Home() {
     }
 
     // Handle new API response format
+    console.log('Checking conditions:', {
+      found: trackingData.found,
+      tracking_data: trackingData.tracking_data,
+      tracking_data_length: trackingData.tracking_data?.length
+    });
     if (!trackingData.found || !trackingData.tracking_data || trackingData.tracking_data.length === 0) {
+      console.log('No tracking data condition met');
       return (
         <Banner status="info">
           <p>No tracking information available for this order</p>
