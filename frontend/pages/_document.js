@@ -1,12 +1,25 @@
 import { Html, Head, Main, NextScript } from 'next/document';
+import { useRouter } from 'next/router';
 
 export default function Document() {
   return (
     <Html lang="en">
       <Head>
-        {/* Load Shopify App Bridge via plain script tag to avoid next/script usage in _document */}
-        <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
-        {/* Tailwind is already configured via PostCSS; remove CDN injection to prevent misuse */}
+
+        <Script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></Script>
+        {/* Add Tailwind CSS via CDN for widget page */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (window.location.pathname === '/widget') {
+                const link = document.createElement('link');
+                link.href = 'https://cdn.tailwindcss.com';
+                link.rel = 'stylesheet';
+                document.head.appendChild(link);
+              }
+            `,
+          }}
+        />
       </Head>
       <body>
         <Main />
