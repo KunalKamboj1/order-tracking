@@ -104,9 +104,12 @@ app.use((req, res, next) => {
 // Helper function to check if shop has active billing
 const hasActiveBilling = async (shop) => {
   try {
+    // Normalize shop domain format
+    const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
+    
     const result = await pool.query(
       'SELECT * FROM charges WHERE shop = $1 AND status = $2 ORDER BY created_at DESC LIMIT 1',
-      [shop, 'active']
+      [shopDomain, 'active']
     );
     return result.rows.length > 0;
   } catch (error) {
