@@ -50,8 +50,22 @@ function Home() {
           const { status, needsAuth, authUrl } = response.data;
           
           if (needsAuth && (status === 'not_installed' || status === 'pending_oauth')) {
-            // Redirect to complete OAuth flow
-            window.location.href = `${process.env.NEXT_PUBLIC_BACKEND_URL}${authUrl}`;
+            // Redirect to complete OAuth flow with preserved host and returnUrl
+            const host = urlParams.get('host');
+            const backend = process.env.NEXT_PUBLIC_BACKEND_URL;
+            try {
+              const redirectUrl = new URL(`${backend}${authUrl}`);
+              if (host) redirectUrl.searchParams.set('host', host);
+              redirectUrl.searchParams.set('returnUrl', window.location.href);
+              window.location.href = redirectUrl.toString();
+            } catch (e) {
+              // Fallback if URL constructor fails due to invalid base
+              const params = [];
+              if (host) params.push(`host=${encodeURIComponent(host)}`);
+              params.push(`returnUrl=${encodeURIComponent(window.location.href)}`);
+              const sep = authUrl.includes('?') ? '&' : '?';
+              window.location.href = `${backend}${authUrl}${sep}${params.join('&')}`;
+            }
             return;
           }
         } catch (error) {
@@ -103,8 +117,11 @@ function Home() {
       }
       
       if (!response.data.hasActiveBilling) {
-        // Redirect to pricing page if no active billing
-        window.location.href = `/pricing?shop=${encodeURIComponent(shopParam)}`;
+        // Redirect to pricing page if no active billing (preserve host)
+        const host = urlParams.get('host');
+        const params = new URLSearchParams({ shop: shopParam });
+        if (host) params.set('host', host);
+        window.location.href = `/pricing?${params.toString()}`;
       }
     } catch (error) {
        // Continue without redirect on error to avoid breaking the app

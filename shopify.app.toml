@@ -1,6 +1,6 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-name = "Order Tracking Pro"
+name = "Order Tracking Page Pro"
 client_id = "2d20e8e11bb0f54c316c6394ad8488d1"
 
 application_url = "https://order-tracking-pro.netlify.app/"
