@@ -651,7 +651,7 @@ app.post('/install-theme-block', async (req, res) => {
 
 // Billing endpoints
 app.get('/billing/free', async (req, res) => {
-  const { shop } = req.query;
+  const { shop, host } = req.query;
   
   if (!shop) {
     return res.status(400).json({ error: 'Shop parameter is required' });
@@ -666,14 +666,27 @@ app.get('/billing/free', async (req, res) => {
       [shopDomain, `free_${Date.now()}`, 'free', 'active', 0.00]
     );
     
-    // Redirect back to Shopify admin with success
-    const redirectUrl = `https://${shopDomain}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=success`;
-    res.redirect(redirectUrl);
+    // Redirect back to frontend app with success
+    const frontendUrl = process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app';
+    const redirectUrl = new URL('/pricing', frontendUrl);
+    redirectUrl.searchParams.set('shop', shopDomain);
+    redirectUrl.searchParams.set('billing', 'success');
+    redirectUrl.searchParams.set('plan', 'free');
+    if (host) {
+      redirectUrl.searchParams.set('host', host);
+    }
+    res.redirect(redirectUrl.toString());
   } catch (error) {
     console.error('Free plan activation error:', error);
     const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
-    const redirectUrl = `https://${shopDomain}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=error`;
-    res.redirect(redirectUrl);
+    const frontendUrl = process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app';
+    const redirectUrl = new URL('/pricing', frontendUrl);
+    redirectUrl.searchParams.set('shop', shopDomain);
+    redirectUrl.searchParams.set('billing', 'error');
+    if (host) {
+      redirectUrl.searchParams.set('host', host);
+    }
+    res.redirect(redirectUrl.toString());
   }
 });
 
