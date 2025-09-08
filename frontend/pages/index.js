@@ -43,34 +43,88 @@ function Home() {
     const checkShopStatus = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const shop = urlParams.get('shop');
+      const host = urlParams.get('host');
+      const allParams = Object.fromEntries(urlParams.entries());
+      
+      console.log('🔍 [FRONTEND] Installation Check Started:', {
+        shop,
+        host,
+        allUrlParams: allParams,
+        currentUrl: window.location.href,
+        timestamp: new Date().toISOString()
+      });
       
       if (shop) {
+        console.log('✅ [FRONTEND] Shop parameter found, checking status:', shop);
         try {
-          const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/shop/status?shop=${shop}`);
+          const statusUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/shop/status?shop=${shop}`;
+          console.log('📡 [FRONTEND] Calling shop status endpoint:', statusUrl);
+          
+          const response = await axios.get(statusUrl);
           const { status, needsAuth, authUrl } = response.data;
           
+          console.log('📋 [FRONTEND] Shop status response:', {
+            status,
+            needsAuth,
+            authUrl,
+            fullResponse: response.data
+          });
+          
           if (needsAuth && (status === 'not_installed' || status === 'pending_oauth')) {
+            console.log('🔄 [FRONTEND] OAuth required, preparing redirect:', {
+              status,
+              needsAuth,
+              authUrl,
+              host
+            });
+            
             // Redirect to complete OAuth flow with preserved host and returnUrl
-            const host = urlParams.get('host');
             const backend = process.env.NEXT_PUBLIC_BACKEND_URL;
             try {
               const redirectUrl = new URL(`${backend}${authUrl}`);
               if (host) redirectUrl.searchParams.set('host', host);
               redirectUrl.searchParams.set('returnUrl', window.location.href);
+              
+              console.log('🚀 [FRONTEND] Redirecting to OAuth:', {
+                redirectUrl: redirectUrl.toString(),
+                preservedHost: host,
+                returnUrl: window.location.href
+              });
+              
               window.location.href = redirectUrl.toString();
             } catch (e) {
+              console.warn('⚠️ [FRONTEND] URL constructor failed, using fallback:', e.message);
               // Fallback if URL constructor fails due to invalid base
               const params = [];
               if (host) params.push(`host=${encodeURIComponent(host)}`);
               params.push(`returnUrl=${encodeURIComponent(window.location.href)}`);
               const sep = authUrl.includes('?') ? '&' : '?';
-              window.location.href = `${backend}${authUrl}${sep}${params.join('&')}`;
+              const fallbackUrl = `${backend}${authUrl}${sep}${params.join('&')}`;
+              
+              console.log('🚀 [FRONTEND] Fallback redirect URL:', fallbackUrl);
+              window.location.href = fallbackUrl;
             }
             return;
+          } else {
+            console.log('✅ [FRONTEND] Shop already authenticated:', {
+              status,
+              needsAuth
+            });
           }
         } catch (error) {
+          console.error('❌ [FRONTEND] Shop status check failed:', {
+            error: error.message,
+            response: error.response?.data,
+            status: error.response?.status,
+            shop
+          });
           // Continue loading the app even if status check fails
         }
+      } else {
+        console.log('⚠️ [FRONTEND] No shop parameter found in URL:', {
+          allParams,
+          currentUrl: window.location.href
+        });
       }
     };
     

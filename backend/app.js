@@ -243,9 +243,25 @@ app.get('/', (req, res) => {
 // OAuth start endpoint
 app.get('/auth', (req, res) => {
   const { shop, host, returnUrl } = req.query;
-  console.log('OAuth start - shop:', shop, 'host:', host, 'returnUrl:', returnUrl);
+  const allParams = req.query;
+  const timestamp = new Date().toISOString();
+  
+  console.log('🚀 [BACKEND] OAuth Start Endpoint Called:', {
+    shop,
+    host,
+    returnUrl,
+    allParams,
+    timestamp,
+    userAgent: req.get('User-Agent'),
+    referer: req.get('Referer'),
+    ip: req.ip
+  });
 
   if (!shop) {
+    console.error('❌ [BACKEND] OAuth Error: Missing shop parameter:', {
+      allParams,
+      timestamp
+    });
     return res.status(400).json({ error: 'Shop parameter is required' });
   }
 
@@ -253,8 +269,21 @@ app.get('/auth', (req, res) => {
   const scopes = 'read_orders,read_products,read_themes,write_themes';
   const redirectUri = `${process.env.BACKEND_URL || 'http://localhost:3000'}/callback`;
   
+  console.log('🔧 [BACKEND] OAuth Configuration:', {
+    originalShop: shop,
+    normalizedShopDomain: shopDomain,
+    scopes,
+    redirectUri,
+    apiKey: process.env.SHOPIFY_API_KEY ? `${process.env.SHOPIFY_API_KEY.substring(0, 8)}...` : 'NOT_SET'
+  });
+  
   // Create signed state with host and returnUrl for preservation
   const state = createSignedState({ host, returnUrl });
+  console.log('🔐 [BACKEND] Created signed state for preservation:', {
+    host,
+    returnUrl,
+    stateLength: state?.length
+  });
 
   const authUrl = `https://${shopDomain}/admin/oauth/authorize?` +
     `client_id=${process.env.SHOPIFY_API_KEY}&` +
@@ -262,30 +291,62 @@ app.get('/auth', (req, res) => {
     `redirect_uri=${encodeURIComponent(redirectUri)}&` +
     `state=${encodeURIComponent(state)}`;
 
-  console.log('Redirecting to Shopify OAuth:', authUrl);
+  console.log('🔄 [BACKEND] Redirecting to Shopify OAuth:', {
+    authUrl,
+    shopDomain,
+    timestamp
+  });
   res.redirect(authUrl);
 });
 
 // OAuth callback endpoint
 app.get('/callback', async (req, res) => {
   const { code, shop, state } = req.query;
-  console.log('OAuth callback - shop:', shop, 'code present:', !!code, 'state present:', !!state);
+  const allParams = req.query;
+  const timestamp = new Date().toISOString();
+  
+  console.log('🔙 [BACKEND] OAuth Callback Endpoint Called:', {
+    shop,
+    codePresent: !!code,
+    statePresent: !!state,
+    allParams,
+    timestamp,
+    userAgent: req.get('User-Agent'),
+    referer: req.get('Referer'),
+    ip: req.ip
+  });
   
   // Extract preserved values from signed state
-  const { host: preservedHost, returnUrl: preservedReturnUrl } = verifyAndExtractState(state) || {};
-  console.log('Preserved values - host:', preservedHost, 'returnUrl:', preservedReturnUrl);
+  const stateData = verifyAndExtractState(state);
+  const { host: preservedHost, returnUrl: preservedReturnUrl } = stateData || {};
+  
+  console.log('🔐 [BACKEND] State Verification Result:', {
+    stateValid: !!stateData,
+    preservedHost,
+    preservedReturnUrl,
+    stateData
+  });
 
   try {
     if (!code || !shop) {
-      console.log('Missing required parameters for OAuth');
+      console.error('❌ [BACKEND] OAuth Callback Error: Missing required parameters:', {
+        code: !!code,
+        shop: !!shop,
+        allParams,
+        timestamp
+      });
       return res.status(400).json({ error: 'Missing required parameters' });
     }
 
     const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
-    console.log('Shop domain:', shopDomain);
+    console.log('🏪 [BACKEND] Processing shop:', {
+      originalShop: shop,
+      normalizedShopDomain: shopDomain,
+      timestamp
+    });
 
     // Exchange code for access token
-    console.log('Exchanging code for access token...');
+    console.log('🔄 [BACKEND] Exchanging authorization code for access token...');
     const tokenResponse = await axios.post(`https://${shopDomain}/admin/oauth/access_token`, {
       client_id: process.env.SHOPIFY_API_KEY,
       client_secret: process.env.SHOPIFY_API_SECRET,
@@ -293,61 +354,134 @@ app.get('/callback', async (req, res) => {
     });
 
     const { access_token } = tokenResponse.data;
-    console.log('Access token received:', access_token ? `${access_token.substring(0, 10)}...` : 'None');
+    console.log('🎫 [BACKEND] Access token received:', {
+      tokenPresent: !!access_token,
+      tokenPreview: access_token ? `${access_token.substring(0, 10)}...` : 'None',
+      shopDomain,
+      timestamp: new Date().toISOString()
+    });
 
     // Validate the access token
-    console.log('Validating access token...');
-    await axios.get(`https://${shopDomain}/admin/api/2023-10/shop.json`, {
+    console.log('✅ [BACKEND] Validating access token with Shopify API...');
+    const shopInfoResponse = await axios.get(`https://${shopDomain}/admin/api/2023-10/shop.json`, {
       headers: {
         'X-Shopify-Access-Token': access_token
       }
     });
-    console.log('Access token validation successful');
+    
+    console.log('✅ [BACKEND] Access token validation successful:', {
+      shopInfo: {
+        name: shopInfoResponse.data.shop?.name,
+        domain: shopInfoResponse.data.shop?.domain,
+        myshopifyDomain: shopInfoResponse.data.shop?.myshopify_domain
+      },
+      timestamp: new Date().toISOString()
+    });
 
     // Store the access token
-    console.log('Storing token in database...');
-    await pool.query(
+    console.log('💾 [BACKEND] Storing access token in database...');
+    const dbResult = await pool.query(
       'INSERT INTO shops (shop, access_token) VALUES ($1, $2) ON CONFLICT (shop) DO UPDATE SET access_token = EXCLUDED.access_token RETURNING *',
       [shopDomain, access_token]
     );
-    console.log('Token stored successfully');
+    
+    console.log('✅ [BACKEND] Token stored successfully in database:', {
+      shopDomain,
+      dbResult: dbResult.rows[0],
+      isNewInstallation: dbResult.rowCount > 0,
+      timestamp: new Date().toISOString()
+    });
 
     const appUrl = process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app';
+    
+    console.log('🔗 [BACKEND] Preparing final redirect:', {
+      appUrl,
+      preservedReturnUrl,
+      preservedHost,
+      shopDomain,
+      timestamp: new Date().toISOString()
+    });
 
     // Try to use preserved return URL first
     let finalUrl;
     if (preservedReturnUrl) {
+      console.log('🔄 [BACKEND] Attempting to use preserved return URL...');
       try {
         const returnUrlObj = new URL(preservedReturnUrl);
         const appUrlObj = new URL(appUrl);
+        console.log('🔍 [BACKEND] URL origin comparison:', {
+          returnUrlOrigin: returnUrlObj.origin,
+          appUrlOrigin: appUrlObj.origin,
+          originMatch: returnUrlObj.origin === appUrlObj.origin
+        });
+        
         // Only use preserved URL if it's from the same origin as our app
         if (returnUrlObj.origin === appUrlObj.origin) {
           finalUrl = preservedReturnUrl;
+          console.log('✅ [BACKEND] Using preserved return URL (same origin)');
+        } else {
+          console.log('⚠️ [BACKEND] Preserved URL rejected (different origin)');
         }
-      } catch (_) {}
+      } catch (urlError) {
+        console.warn('⚠️ [BACKEND] Invalid preserved return URL:', {
+          preservedReturnUrl,
+          error: urlError.message
+        });
+      }
     }
 
     if (!finalUrl) {
+      console.log('🏗️ [BACKEND] Building default redirect URL...');
       const url = new URL(appUrl);
       url.searchParams.set('shop', shopDomain);
       if (preservedHost) url.searchParams.set('host', preservedHost);
       url.searchParams.set('installed', 'true');
       finalUrl = url.toString();
+      console.log('✅ [BACKEND] Default URL constructed:', finalUrl);
     } else {
+      console.log('🔧 [BACKEND] Ensuring required params in preserved URL...');
       // Ensure required params are in the preserved URL
       const url = new URL(finalUrl);
+      const originalParams = Object.fromEntries(url.searchParams.entries());
+      
       if (!url.searchParams.get('shop')) url.searchParams.set('shop', shopDomain);
       if (preservedHost && !url.searchParams.get('host')) url.searchParams.set('host', preservedHost);
       if (!url.searchParams.get('installed')) url.searchParams.set('installed', 'true');
       finalUrl = url.toString();
+      
+      console.log('✅ [BACKEND] Enhanced preserved URL:', {
+        originalParams,
+        finalParams: Object.fromEntries(url.searchParams.entries()),
+        finalUrl
+      });
     }
 
-    console.log('Redirecting to app:', finalUrl);
+    console.log('🚀 [BACKEND] Final OAuth redirect:', {
+      finalUrl,
+      shopDomain,
+      preservedHost,
+      timestamp: new Date().toISOString()
+    });
     res.redirect(finalUrl);
   } catch (error) {
-    console.error('OAuth callback error:', error.response?.data || error.message);
+    console.error('💥 [BACKEND] OAuth Callback Error:', {
+      errorMessage: error.message,
+      errorStack: error.stack,
+      responseData: error.response?.data,
+      responseStatus: error.response?.status,
+      responseHeaders: error.response?.headers,
+      shopDomain: shop,
+      codePresent: !!code,
+      statePresent: !!state,
+      timestamp: new Date().toISOString()
+    });
+    
     if (error.response?.status === 401) {
-      console.error('Access token validation failed - invalid token received');
+      console.error('🚫 [BACKEND] Access token validation failed - invalid token received:', {
+        shopDomain: shop,
+        apiKey: process.env.SHOPIFY_API_KEY ? `${process.env.SHOPIFY_API_KEY.substring(0, 8)}...` : 'NOT_SET',
+        apiSecret: process.env.SHOPIFY_API_SECRET ? 'SET' : 'NOT_SET'
+      });
     }
     res.status(500).json({ error: 'Failed to complete OAuth flow' });
   }
@@ -356,18 +490,57 @@ app.get('/callback', async (req, res) => {
 // Shop status endpoint
 app.get('/shop/status', async (req, res) => {
   const { shop } = req.query;
+  const allParams = req.query;
+  const timestamp = new Date().toISOString();
+  
+  console.log('🔍 [BACKEND] Shop Status Check Started:', {
+    shop,
+    allParams,
+    timestamp,
+    userAgent: req.get('User-Agent'),
+    referer: req.get('Referer'),
+    ip: req.ip
+  });
   
   if (!shop) {
+    console.error('❌ [BACKEND] Shop Status Error: Missing shop parameter:', {
+      allParams,
+      timestamp
+    });
     return res.status(400).json({ error: 'Shop parameter is required' });
   }
   
   try {
     const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
     
+    console.log('🏪 [BACKEND] Checking shop in database:', {
+      originalShop: shop,
+      normalizedShopDomain: shopDomain,
+      timestamp
+    });
+    
     const result = await pool.query('SELECT * FROM shops WHERE shop = $1', [shopDomain]);
     
+    console.log('💾 [BACKEND] Database query result:', {
+      shopDomain,
+      foundInDb: result.rows.length > 0,
+      rowCount: result.rows.length,
+      shopData: result.rows.length > 0 ? {
+        shop: result.rows[0].shop,
+        hasAccessToken: !!result.rows[0].access_token,
+        tokenPreview: result.rows[0].access_token ? `${result.rows[0].access_token.substring(0, 10)}...` : 'None'
+      } : null,
+      timestamp
+    });
+    
     if (result.rows.length === 0) {
+      console.log('🚫 [BACKEND] Shop not found in database - needs installation:', {
+        shopDomain,
+        authUrl: `/auth?shop=${encodeURIComponent(shop)}`,
+        timestamp
+      });
       return res.json({ 
+        status: 'not_installed',
         installed: false, 
         needsAuth: true,
         authUrl: `/auth?shop=${encodeURIComponent(shop)}`
@@ -377,7 +550,13 @@ app.get('/shop/status', async (req, res) => {
     const shopData = result.rows[0];
     
     if (!shopData.access_token) {
+      console.log('🔑 [BACKEND] Shop found but no access token - needs OAuth:', {
+        shopDomain,
+        authUrl: `/auth?shop=${encodeURIComponent(shop)}`,
+        timestamp
+      });
       return res.json({ 
+        status: 'pending_oauth',
         installed: false, 
         needsAuth: true,
         authUrl: `/auth?shop=${encodeURIComponent(shop)}`
@@ -385,26 +564,52 @@ app.get('/shop/status', async (req, res) => {
     }
     
     // Check if access token is still valid
+    console.log('✅ [BACKEND] Validating access token with Shopify API...');
     try {
-      await axios.get(`https://${shopDomain}/admin/api/2023-10/shop.json`, {
+      const validationResponse = await axios.get(`https://${shopDomain}/admin/api/2023-10/shop.json`, {
         headers: {
           'X-Shopify-Access-Token': shopData.access_token
         }
       });
       
+      console.log('✅ [BACKEND] Access token validation successful - shop is installed:', {
+        shopDomain,
+        shopInfo: {
+          name: validationResponse.data.shop?.name,
+          domain: validationResponse.data.shop?.domain
+        },
+        timestamp
+      });
+      
       return res.json({ 
+        status: 'installed',
         installed: true, 
         needsAuth: false 
       });
     } catch (tokenError) {
+      console.error('🚫 [BACKEND] Access token validation failed - token expired/invalid:', {
+        shopDomain,
+        errorMessage: tokenError.message,
+        errorStatus: tokenError.response?.status,
+        errorData: tokenError.response?.data,
+        authUrl: `/auth?shop=${encodeURIComponent(shop)}`,
+        timestamp
+      });
       return res.json({ 
+        status: 'token_invalid',
         installed: false, 
         needsAuth: true,
         authUrl: `/auth?shop=${encodeURIComponent(shop)}`
       });
     }
   } catch (error) {
-    console.error('Shop status error:', error);
+    console.error('💥 [BACKEND] Shop Status Check Error:', {
+      errorMessage: error.message,
+      errorStack: error.stack,
+      shopDomain: shop,
+      allParams,
+      timestamp
+    });
     res.status(500).json({ error: 'Failed to check shop status' });
   }
 });
