@@ -864,29 +864,40 @@ app.get('/tracking', async (req, res) => {
     
     if (order_id) {
       // Single order response
-      orders = [response.data.order];
+      const order = response.data.order;
+      if (order) {
+        orders = [order];
+      }
     } else {
       // Multiple orders response
       orders = response.data.orders || [];
     }
     
+    // Filter out any null/undefined orders and ensure they have proper structure
+    orders = orders.filter(order => order && typeof order === 'object');
+    
     // Filter by tracking number if provided
     if (tracking_number && !order_id) {
       orders = orders.filter(order => 
-        order.fulfillments?.some(fulfillment => 
-          fulfillment.tracking_number === tracking_number
+        order.fulfillments && Array.isArray(order.fulfillments) &&
+        order.fulfillments.some(fulfillment => 
+          fulfillment && fulfillment.tracking_number === tracking_number
         )
       );
     }
     
     // Transform orders to include only tracking-relevant information
     const trackingData = orders.map(order => {
-      const relevantFulfillments = order.fulfillments?.filter(fulfillment => {
+      // Ensure fulfillments is an array, default to empty array if not present
+      const fulfillments = order.fulfillments && Array.isArray(order.fulfillments) ? order.fulfillments : [];
+      
+      const relevantFulfillments = fulfillments.filter(fulfillment => {
+        if (!fulfillment) return false;
         if (tracking_number) {
           return fulfillment.tracking_number === tracking_number;
         }
         return true;
-      }) || [];
+      });
       
       return {
         order_id: order.id,
@@ -898,18 +909,19 @@ app.get('/tracking', async (req, res) => {
         financial_status: order.financial_status,
         fulfillment_status: order.fulfillment_status,
         fulfillments: relevantFulfillments.map(fulfillment => ({
-          id: fulfillment.id,
-          status: fulfillment.status,
-          tracking_company: fulfillment.tracking_company,
-          tracking_number: fulfillment.tracking_number,
-          tracking_url: fulfillment.tracking_url,
-          shipped_date: fulfillment.created_at,
-          updated_at: fulfillment.updated_at,
-          line_items: fulfillment.line_items?.map(item => ({
-            name: item.name,
-            quantity: item.quantity,
-            sku: item.sku
-          })) || []
+          id: fulfillment?.id || null,
+          status: fulfillment?.status || null,
+          tracking_company: fulfillment?.tracking_company || null,
+          tracking_number: fulfillment?.tracking_number || null,
+          tracking_url: fulfillment?.tracking_url || null,
+          shipped_date: fulfillment?.created_at || null,
+          updated_at: fulfillment?.updated_at || null,
+          line_items: (fulfillment?.line_items && Array.isArray(fulfillment.line_items)) ? 
+            fulfillment.line_items.map(item => ({
+              name: item?.name || null,
+              quantity: item?.quantity || null,
+              sku: item?.sku || null
+            })) : []
         }))
       };
     });
