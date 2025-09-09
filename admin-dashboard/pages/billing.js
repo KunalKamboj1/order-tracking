@@ -30,10 +30,11 @@ export default function Billing({ setIsAuthenticated }) {
       const response = await axios.get(`${backendUrl}/api/admin/billing?days=${timeRange}`)
       setBillingData(response.data || [])
       
-      // Calculate stats
+      // Calculate stats - only include active status for revenue
       const data = response.data || []
-      const totalRevenue = data.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
-      const activeCount = data.filter(item => item.status === 'active').length
+      const activeItems = data.filter(item => item.status === 'active')
+      const totalRevenue = activeItems.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
+      const activeCount = activeItems.length
       
       setStats({
         totalRevenue,
@@ -265,11 +266,11 @@ export default function Billing({ setIsAuthenticated }) {
                   {billingData.map((record) => (
                     <tr key={record.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {record.shop_domain}
+                        {record.shop || 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={getPlanBadge(record.plan_type)}>
-                          {record.plan_type}
+                        <span className={getPlanBadge(record.plan)}>
+                          {record.plan || 'N/A'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -284,7 +285,7 @@ export default function Billing({ setIsAuthenticated }) {
                         {format(new Date(record.created_at), 'MMM dd, yyyy')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {record.next_billing_date ? format(new Date(record.next_billing_date), 'MMM dd, yyyy') : 'N/A'}
+                        {record.next_billing ? format(new Date(record.next_billing), 'MMM dd, yyyy') : 'N/A'}
                       </td>
                     </tr>
                   ))}

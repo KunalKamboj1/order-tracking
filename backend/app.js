@@ -1683,16 +1683,36 @@ app.get('/api/admin/billing', async (req, res) => {
     // Ensure tables exist first
     await initDatabase();
     
+    // Get latest charge per shop (only active status for revenue calculation)
     const result = await pool.query(`
+      WITH latest_charges AS (
+        SELECT DISTINCT ON (shop) 
+          c.shop,
+          c.type as plan,
+          c.status,
+          c.amount,
+          c.currency,
+          c.created_at,
+          c.updated_at,
+          s.shop as shop_domain
+        FROM charges c
+        LEFT JOIN shops s ON c.shop = s.shop
+        ORDER BY c.shop, c.created_at DESC
+      )
       SELECT 
-        shop,
-        type,
+        shop_domain as shop,
+        plan,
         status,
         amount,
         currency,
         created_at,
-        updated_at
-      FROM charges
+        updated_at,
+        CASE 
+          WHEN created_at + INTERVAL '30 days' > CURRENT_TIMESTAMP 
+          THEN (created_at + INTERVAL '30 days')::date
+          ELSE NULL
+        END as next_billing
+      FROM latest_charges
       ORDER BY created_at DESC
     `);
     
