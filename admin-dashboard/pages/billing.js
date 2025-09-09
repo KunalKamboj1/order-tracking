@@ -26,7 +26,7 @@ export default function Billing({ setIsAuthenticated }) {
   const fetchBillingData = async () => {
     try {
       setLoading(true)
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://order-tracking-pro.onrender.com'
       const response = await axios.get(`${backendUrl}/api/admin/billing?days=${timeRange}`)
       setBillingData(response.data || [])
       
@@ -45,43 +45,13 @@ export default function Billing({ setIsAuthenticated }) {
       console.error('Error fetching billing data:', err)
       setError('Failed to load billing data')
       
-      // Mock data for demo
-      const mockData = [
-        {
-          id: 1,
-          shop_domain: 'example-store.myshopify.com',
-          plan_type: 'premium',
-          amount: '29.99',
-          status: 'active',
-          created_at: new Date().toISOString(),
-          next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: 2,
-          shop_domain: 'fashion-boutique.myshopify.com',
-          plan_type: 'free',
-          amount: '0.00',
-          status: 'active',
-          created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          next_billing_date: null
-        },
-        {
-          id: 3,
-          shop_domain: 'tech-gadgets.myshopify.com',
-          plan_type: 'premium',
-          amount: '29.99',
-          status: 'cancelled',
-          created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          next_billing_date: null
-        }
-      ]
-      
-      setBillingData(mockData)
+      // Set empty data when API fails
+      setBillingData([])
       setStats({
-        totalRevenue: 2850.75,
-        monthlyRevenue: 1899.50,
-        activeSubscriptions: 38,
-        churnRate: 5.2
+        totalRevenue: 'N/A',
+        monthlyRevenue: 'N/A',
+        activeSubscriptions: 'N/A',
+        churnRate: 'N/A'
       })
     } finally {
       setLoading(false)

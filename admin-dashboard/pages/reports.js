@@ -22,57 +22,32 @@ export default function Reports({ setIsAuthenticated }) {
   const fetchReportData = async () => {
     try {
       setLoading(true)
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://order-tracking-pro.onrender.com'
       const response = await axios.get(`${backendUrl}/api/admin/reports?type=${reportType}&days=${dateRange}`)
       setReportData(response.data || {})
     } catch (err) {
       console.error('Error fetching report data:', err)
       setError('Failed to load report data')
       
-      // Mock comprehensive report data
+      // Set empty data when API fails
       setReportData({
         summary: {
-          totalShops: 45,
-          activeShops: 38,
-          totalRevenue: 2850.75,
-          totalTrackingRequests: 1247,
-          averageRequestsPerShop: 27.7,
-          topPerformingShop: 'example-store.myshopify.com'
+          totalShops: 'N/A',
+          activeShops: 'N/A',
+          totalRevenue: 'N/A',
+          totalTrackingRequests: 'N/A',
+          averageRequestsPerShop: 'N/A',
+          topPerformingShop: 'N/A'
         },
         growth: {
-          shopsGrowth: 12.5,
-          revenueGrowth: 8.3,
-          trackingGrowth: 15.2
+          shopsGrowth: 'N/A',
+          revenueGrowth: 'N/A',
+          trackingGrowth: 'N/A'
         },
-        trends: Array.from({ length: parseInt(dateRange) }, (_, i) => {
-          const date = new Date()
-          date.setDate(date.getDate() - (parseInt(dateRange) - 1 - i))
-          return {
-            date: date.toISOString().split('T')[0],
-            shops: Math.floor(Math.random() * 5) + 35,
-            revenue: Math.floor(Math.random() * 200) + 100,
-            tracking: Math.floor(Math.random() * 50) + 30,
-            newSignups: Math.floor(Math.random() * 3) + 1
-          }
-        }),
-        topShops: [
-          { shop: 'example-store.myshopify.com', revenue: 299.99, requests: 145, plan: 'premium' },
-          { shop: 'fashion-boutique.myshopify.com', revenue: 199.99, requests: 89, plan: 'premium' },
-          { shop: 'tech-gadgets.myshopify.com', revenue: 99.99, requests: 67, plan: 'premium' },
-          { shop: 'home-decor.myshopify.com', revenue: 29.99, requests: 45, plan: 'premium' },
-          { shop: 'sports-gear.myshopify.com', revenue: 0, requests: 23, plan: 'free' }
-        ],
-        carrierStats: [
-          { name: 'FedEx', requests: 342, percentage: 27.4, avgResponseTime: 1.2 },
-          { name: 'UPS', requests: 298, percentage: 23.9, avgResponseTime: 1.1 },
-          { name: 'USPS', requests: 256, percentage: 20.5, avgResponseTime: 1.8 },
-          { name: 'DHL', requests: 189, percentage: 15.2, avgResponseTime: 1.4 },
-          { name: 'Others', requests: 162, percentage: 13.0, avgResponseTime: 2.1 }
-        ],
-        planDistribution: [
-          { name: 'Premium', value: 28, revenue: 2550.75 },
-          { name: 'Free', value: 17, revenue: 0 }
-        ]
+        trends: [],
+        topShops: [],
+        carrierStats: [],
+        planDistribution: []
       })
     } finally {
       setLoading(false)
@@ -227,10 +202,16 @@ export default function Reports({ setIsAuthenticated }) {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Total Revenue</p>
-                      <p className="text-2xl font-semibold text-gray-900">${reportData.summary.totalRevenue.toLocaleString()}</p>
+                      <p className="text-2xl font-semibold text-gray-900">
+                        {typeof reportData.summary.totalRevenue === 'number' 
+                          ? `$${reportData.summary.totalRevenue.toLocaleString()}` 
+                          : reportData.summary.totalRevenue}
+                      </p>
                     </div>
                     <div className="text-sm text-green-600 font-medium">
-                      +{reportData.growth.revenueGrowth}%
+                      {typeof reportData.growth.revenueGrowth === 'number' 
+                        ? `+${reportData.growth.revenueGrowth}%` 
+                        : reportData.growth.revenueGrowth}
                     </div>
                   </div>
                 </div>
@@ -239,10 +220,16 @@ export default function Reports({ setIsAuthenticated }) {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Tracking Requests</p>
-                      <p className="text-2xl font-semibold text-gray-900">{reportData.summary.totalTrackingRequests.toLocaleString()}</p>
+                      <p className="text-2xl font-semibold text-gray-900">
+                        {typeof reportData.summary.totalTrackingRequests === 'number' 
+                          ? reportData.summary.totalTrackingRequests.toLocaleString() 
+                          : reportData.summary.totalTrackingRequests}
+                      </p>
                     </div>
                     <div className="text-sm text-green-600 font-medium">
-                      +{reportData.growth.trackingGrowth}%
+                      {typeof reportData.growth.trackingGrowth === 'number' 
+                        ? `+${reportData.growth.trackingGrowth}%` 
+                        : reportData.growth.trackingGrowth}
                     </div>
                   </div>
                 </div>
@@ -259,30 +246,42 @@ export default function Reports({ setIsAuthenticated }) {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="card">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Trend</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={reportData.trends}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" tickFormatter={(date) => format(new Date(date), 'MMM dd')} />
-                      <YAxis />
-                      <Tooltip labelFormatter={(date) => format(new Date(date), 'MMM dd, yyyy')} />
-                      <Legend />
-                      <Line type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={2} name="Revenue ($)" />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  {reportData.trends && reportData.trends.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={reportData.trends}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" tickFormatter={(date) => format(new Date(date), 'MMM dd')} />
+                        <YAxis />
+                        <Tooltip labelFormatter={(date) => format(new Date(date), 'MMM dd, yyyy')} />
+                        <Legend />
+                        <Line type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={2} name="Revenue ($)" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-[300px] text-gray-500">
+                      No trend data available
+                    </div>
+                  )}
                 </div>
 
                 <div className="card">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Shop Growth</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={reportData.trends}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" tickFormatter={(date) => format(new Date(date), 'MMM dd')} />
-                      <YAxis />
-                      <Tooltip labelFormatter={(date) => format(new Date(date), 'MMM dd, yyyy')} />
-                      <Legend />
-                      <Bar dataKey="newSignups" fill="#3B82F6" name="New Signups" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  {reportData.trends && reportData.trends.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={reportData.trends}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" tickFormatter={(date) => format(new Date(date), 'MMM dd')} />
+                        <YAxis />
+                        <Tooltip labelFormatter={(date) => format(new Date(date), 'MMM dd, yyyy')} />
+                        <Legend />
+                        <Bar dataKey="newSignups" fill="#3B82F6" name="New Signups" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-[300px] text-gray-500">
+                      No growth data available
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -291,51 +290,63 @@ export default function Reports({ setIsAuthenticated }) {
                 <div className="card">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Performing Shops</h3>
                   <div className="space-y-3">
-                    {reportData.topShops.map((shop, index) => (
-                      <div key={shop.shop} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-sm font-medium mr-3">
-                            {index + 1}
+                    {reportData.topShops && reportData.topShops.length > 0 ? (
+                      reportData.topShops.map((shop, index) => (
+                        <div key={shop.shop} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center">
+                            <div className="w-8 h-8 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-sm font-medium mr-3">
+                              {index + 1}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{shop.shop}</p>
+                              <p className="text-xs text-gray-500">{shop.requests} requests</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{shop.shop}</p>
-                            <p className="text-xs text-gray-500">{shop.requests} requests</p>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-gray-900">${shop.revenue}</p>
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              shop.plan === 'premium' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {shop.plan}
+                            </span>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold text-gray-900">${shop.revenue}</p>
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            shop.plan === 'premium' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {shop.plan}
-                          </span>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="flex items-center justify-center py-8 text-gray-500">
+                        No shop performance data available
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
 
                 <div className="card">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Plan Distribution</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={reportData.planDistribution}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, value, percentage }) => `${name}: ${value} (${(percentage * 100).toFixed(0)}%)`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {reportData.planDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  {reportData.planDistribution && reportData.planDistribution.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={reportData.planDistribution}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, value, percentage }) => `${name}: ${value} (${(percentage * 100).toFixed(0)}%)`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {reportData.planDistribution.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-[300px] text-gray-500">
+                      No plan distribution data available
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -364,35 +375,47 @@ export default function Reports({ setIsAuthenticated }) {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {reportData.carrierStats.map((carrier) => (
-                        <tr key={carrier.name} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {carrier.name}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {carrier.requests.toLocaleString()}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {carrier.percentage}%
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {carrier.avgResponseTime}s
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="w-full bg-gray-200 rounded-full h-2 mr-2">
-                                <div 
-                                  className="bg-green-600 h-2 rounded-full" 
-                                  style={{ width: `${Math.min(100, (2.5 - carrier.avgResponseTime) * 40)}%` }}
-                                ></div>
-                              </div>
-                              <span className="text-xs text-gray-500">
-                                {carrier.avgResponseTime < 1.5 ? 'Excellent' : carrier.avgResponseTime < 2 ? 'Good' : 'Average'}
-                              </span>
-                            </div>
+                      {reportData.carrierStats && reportData.carrierStats.length > 0 ? (
+                        reportData.carrierStats.map((carrier) => (
+                          <tr key={carrier.name} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {carrier.name}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {typeof carrier.requests === 'number' ? carrier.requests.toLocaleString() : carrier.requests}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {typeof carrier.percentage === 'number' ? `${carrier.percentage}%` : carrier.percentage}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {typeof carrier.avgResponseTime === 'number' ? `${carrier.avgResponseTime}s` : carrier.avgResponseTime}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {typeof carrier.avgResponseTime === 'number' ? (
+                                <div className="flex items-center">
+                                  <div className="w-full bg-gray-200 rounded-full h-2 mr-2">
+                                    <div 
+                                      className="bg-green-600 h-2 rounded-full" 
+                                      style={{ width: `${Math.min(100, (2.5 - carrier.avgResponseTime) * 40)}%` }}
+                                    ></div>
+                                  </div>
+                                  <span className="text-xs text-gray-500">
+                                    {carrier.avgResponseTime < 1.5 ? 'Excellent' : carrier.avgResponseTime < 2 ? 'Good' : 'Average'}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-500">N/A</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                            No carrier performance data available
                           </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>

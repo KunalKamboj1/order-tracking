@@ -21,7 +21,7 @@ export default function Dashboard({ setIsAuthenticated }) {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://order-tracking-pro.onrender.com';
         const response = await fetch(`${backendUrl}/api/admin/dashboard`);
         
         if (!response.ok) {
@@ -71,41 +71,20 @@ export default function Dashboard({ setIsAuthenticated }) {
         revenue: billing.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0)
       })
 
-      // Generate chart data for the last 7 days
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
-        const date = new Date()
-        date.setDate(date.getDate() - (6 - i))
-        return {
-          date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          shops: Math.floor(Math.random() * 10) + shops.length - 5,
-          tracking: Math.floor(Math.random() * 50) + 20,
-          revenue: Math.floor(Math.random() * 200) + 100
-        }
-      })
-      
-      setChartData(last7Days)
+      // Set empty chart data when no data available
+      setChartData([])
     } catch (err) {
       console.error('Error fetching dashboard data:', err)
       setError('Failed to load dashboard data')
-      // Set mock data for demo purposes
+      // Set N/A values when API fails
       setStats({
-        totalShops: 45,
-        activeSubscriptions: 38,
-        totalTracking: 1247,
-        revenue: 2850
+        totalShops: 'N/A',
+        activeSubscriptions: 'N/A',
+        totalTracking: 'N/A',
+        revenue: 'N/A'
       })
       
-      const mockData = Array.from({ length: 7 }, (_, i) => {
-        const date = new Date()
-        date.setDate(date.getDate() - (6 - i))
-        return {
-          date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          shops: Math.floor(Math.random() * 10) + 40,
-          tracking: Math.floor(Math.random() * 50) + 150,
-          revenue: Math.floor(Math.random() * 200) + 200
-        }
-      })
-      setChartData(mockData)
+      setChartData([])
     } finally {
       setLoading(false)
     }

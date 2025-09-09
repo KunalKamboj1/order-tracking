@@ -19,45 +19,25 @@ export default function Shops({ setIsAuthenticated }) {
   const fetchShops = async () => {
     try {
       setLoading(true)
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://order-tracking-pro.onrender.com'
       const response = await axios.get(`${backendUrl}/api/admin/shops`)
-      setShops(response.data || [])
+      
+      // Transform API response to match frontend expectations
+      const transformedShops = (response.data || []).map((shop, index) => ({
+        id: index + 1,
+        shop_domain: shop.shop || 'N/A',
+        status: shop.plan_status || 'N/A',
+        plan: shop.plan_type || 'N/A',
+        tracking_count: 0, // Not available in current API
+        created_at: shop.created_at || new Date().toISOString(),
+        last_activity: null // Not available in current API
+      }))
+      
+      setShops(transformedShops)
     } catch (err) {
       console.error('Error fetching shops:', err)
       setError('Failed to load shops data')
-      // Mock data for demo
-      setShops([
-        {
-          id: 1,
-          shop_domain: 'example-store.myshopify.com',
-          access_token: 'shpat_***',
-          created_at: new Date().toISOString(),
-          status: 'active',
-          plan: 'premium',
-          tracking_count: 145,
-          last_activity: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: 2,
-          shop_domain: 'fashion-boutique.myshopify.com',
-          access_token: 'shpat_***',
-          created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          status: 'active',
-          plan: 'free',
-          tracking_count: 23,
-          last_activity: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: 3,
-          shop_domain: 'tech-gadgets.myshopify.com',
-          access_token: 'shpat_***',
-          created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          status: 'inactive',
-          plan: 'premium',
-          tracking_count: 89,
-          last_activity: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-        }
-      ])
+      setShops([])
     } finally {
       setLoading(false)
     }
@@ -72,8 +52,9 @@ export default function Shops({ setIsAuthenticated }) {
     let bValue = b[sortBy]
     
     if (sortBy === 'created_at' || sortBy === 'last_activity') {
-      aValue = new Date(aValue)
-      bValue = new Date(bValue)
+      // Handle null/undefined dates
+      aValue = aValue ? new Date(aValue) : new Date(0)
+      bValue = bValue ? new Date(bValue) : new Date(0)
     }
     
     if (sortOrder === 'asc') {
@@ -208,23 +189,35 @@ export default function Shops({ setIsAuthenticated }) {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={getStatusBadge(shop.status)}>
-                          {shop.status}
-                        </span>
+                        {shop.status === 'N/A' ? (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                            N/A
+                          </span>
+                        ) : (
+                          <span className={getStatusBadge(shop.status)}>
+                            {shop.status}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={getPlanBadge(shop.plan)}>
-                          {shop.plan}
-                        </span>
+                        {shop.plan === 'N/A' ? (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                            N/A
+                          </span>
+                        ) : (
+                          <span className={getPlanBadge(shop.plan)}>
+                            {shop.plan}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {shop.tracking_count?.toLocaleString() || 0}
+                        N/A
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {format(new Date(shop.created_at), 'MMM dd, yyyy')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {shop.last_activity ? format(new Date(shop.last_activity), 'MMM dd, HH:mm') : 'Never'}
+                        N/A
                       </td>
                     </tr>
                   ))}
@@ -244,7 +237,7 @@ export default function Shops({ setIsAuthenticated }) {
             <div className="card">
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">
-                  {shops.filter(s => s.status === 'active').length}
+                  {shops.filter(s => s.status === 'active').length || 'N/A'}
                 </div>
                 <div className="text-sm text-gray-500">Active Shops</div>
               </div>
@@ -252,7 +245,7 @@ export default function Shops({ setIsAuthenticated }) {
             <div className="card">
               <div className="text-center">
                 <div className="text-2xl font-bold text-purple-600">
-                  {shops.filter(s => s.plan === 'premium').length}
+                  {shops.filter(s => s.plan === 'premium').length || 'N/A'}
                 </div>
                 <div className="text-sm text-gray-500">Premium Plans</div>
               </div>
@@ -260,7 +253,7 @@ export default function Shops({ setIsAuthenticated }) {
             <div className="card">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
-                  {shops.reduce((sum, s) => sum + (s.tracking_count || 0), 0).toLocaleString()}
+                  N/A
                 </div>
                 <div className="text-sm text-gray-500">Total Tracking Requests</div>
               </div>
