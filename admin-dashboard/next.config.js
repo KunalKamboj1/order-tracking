@@ -8,10 +8,24 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
+  experimental: {
+    esmExternals: false
+  },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      }
+    }
+    return config
+  },
   env: {
-    BACKEND_URL: process.env.BACKEND_URL || 'https://your-backend-url.herokuapp.com',
-    ADMIN_USERNAME: process.env.ADMIN_USERNAME || 'admin',
-    ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'admin123'
+    BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:3000',
+    NEXT_PUBLIC_ADMIN_USERNAME: process.env.NEXT_PUBLIC_ADMIN_USERNAME || 'admin',
+    NEXT_PUBLIC_ADMIN_PASSWORD: process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'secure_password_123',
   }
 }
 

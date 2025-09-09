@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Tracking Admin Dashboard</title>
+    <meta name="description" content="Admin dashboard for order tracking system">
+    <link rel="icon" href="/favicon.ico" />
+</head>
+<body>
+    <div id="__next"></div>
+    <script>
+        // Redirect to login if no authentication
+        if (typeof window !== 'undefined') {
+            const token = document.cookie.split(';').find(c => c.trim().startsWith('admin_token='));
+            if (!token && window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
+        }
+    </script>
+</body>
+</html>

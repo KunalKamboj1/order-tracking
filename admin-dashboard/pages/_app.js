@@ -9,23 +9,26 @@ function MyApp({ Component, pageProps }) {
   const router = useRouter()
 
   useEffect(() => {
+    // Wait for router to be ready
+    if (!router.isReady) return
+    
     const token = Cookies.get('admin_token')
     const isLoginPage = router.pathname === '/login'
     
     if (token) {
       setIsAuthenticated(true)
       if (isLoginPage) {
-        router.push('/')
+        router.replace('/')
       }
     } else {
       setIsAuthenticated(false)
       if (!isLoginPage) {
-        router.push('/login')
+        router.replace('/login')
       }
     }
     
     setIsLoading(false)
-  }, [router.pathname])
+  }, [router.isReady, router.pathname])
 
   if (isLoading) {
     return (

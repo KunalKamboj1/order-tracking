@@ -16,8 +16,8 @@ export default function Login({ setIsAuthenticated }) {
     setError('')
 
     // Simple authentication check against environment variables
-    const adminUsername = process.env.ADMIN_USERNAME || 'admin'
-    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
+    const adminUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME || 'admin'
+    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'secure_password_123'
 
     if (username === adminUsername && password === adminPassword) {
       // Set authentication cookie (expires in 24 hours)
