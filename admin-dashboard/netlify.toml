@@ -48,12 +48,12 @@
 
 # Environment variables for production
 [context.production.environment]
-  BACKEND_URL = "https://your-backend-api.com"
-  ADMIN_USERNAME = "admin"
-  ADMIN_PASSWORD = "secure_password_123"
+  NEXT_PUBLIC_BACKEND_URL = "https://order-tracking-pro.onrender.com"
+  NEXT_PUBLIC_ADMIN_USERNAME = "admin"
+  NEXT_PUBLIC_ADMIN_PASSWORD = "secure_password_123"
 
 # Environment variables for branch deploys
 [context.branch-deploy.environment]
-  BACKEND_URL = "https://staging-backend-api.com"
-  ADMIN_USERNAME = "admin"
-  ADMIN_PASSWORD = "staging_password_123"
+  NEXT_PUBLIC_BACKEND_URL = "https://order-tracking-pro.onrender.com"
+  NEXT_PUBLIC_ADMIN_USERNAME = "admin"
+  NEXT_PUBLIC_ADMIN_PASSWORD = "secure_password_123"

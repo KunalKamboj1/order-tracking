@@ -18,7 +18,35 @@ export default function Dashboard({ setIsAuthenticated }) {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetchDashboardData()
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+        const response = await fetch(`${backendUrl}/api/admin/dashboard`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch dashboard data');
+        }
+        
+        const data = await response.json();
+        setStats({
+          totalShops: data.totalShops || 0,
+          activeSubscriptions: data.activeSubscriptions || 0,
+          totalTracking: data.totalTracking || 0,
+          revenue: data.revenue || 0
+        });
+        setChartData(data.chartData || []);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        setError('Failed to load dashboard data');
+        // Fallback to existing fetchDashboardData function
+        await fetchDashboardData();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, [])
 
   const fetchDashboardData = async () => {

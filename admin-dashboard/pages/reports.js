@@ -22,7 +22,7 @@ export default function Reports({ setIsAuthenticated }) {
   const fetchReportData = async () => {
     try {
       setLoading(true)
-      const backendUrl = process.env.BACKEND_URL
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
       const response = await axios.get(`${backendUrl}/api/admin/reports?type=${reportType}&days=${dateRange}`)
       setReportData(response.data || {})
     } catch (err) {

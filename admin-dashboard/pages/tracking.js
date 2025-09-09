@@ -24,7 +24,7 @@ export default function Tracking({ setIsAuthenticated }) {
   const fetchTrackingData = async () => {
     try {
       setLoading(true)
-      const backendUrl = process.env.BACKEND_URL
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'
       const response = await axios.get(`${backendUrl}/api/admin/tracking?days=${timeRange}`)
       setTrackingData(response.data || [])
       
