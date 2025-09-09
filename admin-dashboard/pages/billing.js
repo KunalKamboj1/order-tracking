@@ -27,6 +27,7 @@ export default function Billing({ setIsAuthenticated }) {
     try {
       setLoading(true)
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://order-tracking-pro.onrender.com'
+      console.log('🔍 [FRONTEND] Fetching billing data from:', `${backendUrl}/api/admin/billing?days=${timeRange}`)
       const response = await axios.get(`${backendUrl}/api/admin/billing?days=${timeRange}`)
       setBillingData(response.data || [])
       
@@ -43,7 +44,13 @@ export default function Billing({ setIsAuthenticated }) {
         churnRate: 5.2 // Mock churn rate
       })
     } catch (err) {
-      console.error('Error fetching billing data:', err)
+      console.error('🚨 [FRONTEND] Error fetching billing data:', {
+        message: err.message,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        url: err.config?.url
+      })
       setError('Failed to load billing data')
       
       // Set empty data when API fails
