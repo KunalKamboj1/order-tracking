@@ -1608,21 +1608,24 @@ app.post('/webhooks/shop/redact', verifyWebhook, async (req, res) => {
 // Admin dashboard overview
 app.get('/api/admin/dashboard', async (req, res) => {
   try {
+    // Ensure tables exist first
+    await initDatabase();
+    
     // Get total shops
     const shopsResult = await pool.query('SELECT COUNT(*) as total FROM shops');
-    const totalShops = parseInt(shopsResult.rows[0].total);
+    const totalShops = parseInt(shopsResult.rows[0].total) || 0;
 
     // Get active subscriptions
     const activeSubsResult = await pool.query(
       "SELECT COUNT(*) as active FROM charges WHERE status = 'active'"
     );
-    const activeSubscriptions = parseInt(activeSubsResult.rows[0].active);
+    const activeSubscriptions = parseInt(activeSubsResult.rows[0].active) || 0;
 
     // Get total revenue
     const revenueResult = await pool.query(
       "SELECT COALESCE(SUM(amount), 0) as total FROM charges WHERE status = 'active'"
     );
-    const totalRevenue = parseFloat(revenueResult.rows[0].total);
+    const totalRevenue = parseFloat(revenueResult.rows[0].total) || 0;
 
     // Get recent activity (last 7 days)
     const recentActivity = await pool.query(
@@ -1633,17 +1636,20 @@ app.get('/api/admin/dashboard', async (req, res) => {
       totalShops,
       activeSubscriptions,
       totalRevenue,
-      recentActivity: recentActivity.rows
+      recentActivity: recentActivity.rows || []
     });
   } catch (error) {
     console.error('Admin dashboard error:', error);
-    res.status(500).json({ error: 'Failed to fetch dashboard data' });
+    res.status(500).json({ error: 'Failed to fetch dashboard data', details: error.message });
   }
 });
 
 // Admin shops endpoint
 app.get('/api/admin/shops', async (req, res) => {
   try {
+    // Ensure tables exist first
+    await initDatabase();
+    
     const result = await pool.query(`
       SELECT 
         s.shop,
@@ -1656,16 +1662,19 @@ app.get('/api/admin/shops', async (req, res) => {
       ORDER BY s.created_at DESC
     `);
     
-    res.json(result.rows);
+    res.json(result.rows || []);
   } catch (error) {
     console.error('Admin shops error:', error);
-    res.status(500).json({ error: 'Failed to fetch shops data' });
+    res.status(500).json({ error: 'Failed to fetch shops data', details: error.message });
   }
 });
 
 // Admin billing endpoint
 app.get('/api/admin/billing', async (req, res) => {
   try {
+    // Ensure tables exist first
+    await initDatabase();
+    
     const result = await pool.query(`
       SELECT 
         shop,
@@ -1679,16 +1688,19 @@ app.get('/api/admin/billing', async (req, res) => {
       ORDER BY created_at DESC
     `);
     
-    res.json(result.rows);
+    res.json(result.rows || []);
   } catch (error) {
     console.error('Admin billing error:', error);
-    res.status(500).json({ error: 'Failed to fetch billing data' });
+    res.status(500).json({ error: 'Failed to fetch billing data', details: error.message });
   }
 });
 
 // Admin tracking analytics endpoint
 app.get('/api/admin/tracking', async (req, res) => {
   try {
+    // Ensure tables exist first
+    await initDatabase();
+    
     // Since we don't store tracking requests in DB yet, return basic shop data
     const result = await pool.query(`
       SELECT 
@@ -1700,7 +1712,7 @@ app.get('/api/admin/tracking', async (req, res) => {
     `);
     
     // Add mock tracking data for now
-    const trackingData = result.rows.map(shop => ({
+    const trackingData = (result.rows || []).map(shop => ({
       ...shop,
       tracking_requests: Math.floor(Math.random() * 100) + 10,
       last_request: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000)
@@ -1709,7 +1721,7 @@ app.get('/api/admin/tracking', async (req, res) => {
     res.json(trackingData);
   } catch (error) {
     console.error('Admin tracking error:', error);
-    res.status(500).json({ error: 'Failed to fetch tracking data' });
+    res.status(500).json({ error: 'Failed to fetch tracking data', details: error.message });
   }
 });
 
@@ -1718,6 +1730,9 @@ app.get('/api/admin/reports', async (req, res) => {
   const { type = 'overview', days = '30' } = req.query;
   
   try {
+    // Ensure tables exist first
+    await initDatabase();
+    
     const daysInt = parseInt(days);
     
     // Get comprehensive report data
@@ -1735,9 +1750,9 @@ app.get('/api/admin/reports', async (req, res) => {
       `)
     ]);
     
-    const totalShops = parseInt(shopsResult.rows[0].total);
-    const activeShops = parseInt(billingResult.rows[0].active);
-    const totalRevenue = parseFloat(billingResult.rows[0].revenue);
+    const totalShops = parseInt(shopsResult.rows[0].total) || 0;
+    const activeShops = parseInt(billingResult.rows[0].active) || 0;
+    const totalRevenue = parseFloat(billingResult.rows[0].revenue) || 0;
     
     res.json({
       summary: {
@@ -1753,12 +1768,12 @@ app.get('/api/admin/reports', async (req, res) => {
         revenueGrowth: 8.3,
         trackingGrowth: 15.2
       },
-      trends: growthResult.rows,
+      trends: growthResult.rows || [],
       topShops: [] // Will be populated when we have more data
     });
   } catch (error) {
     console.error('Admin reports error:', error);
-    res.status(500).json({ error: 'Failed to fetch reports data' });
+    res.status(500).json({ error: 'Failed to fetch reports data', details: error.message });
   }
 });
 
