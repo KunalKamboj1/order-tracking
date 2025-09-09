@@ -44,6 +44,14 @@ const initDatabase = async () => {
       )
     `);
 
+    // Run migration to add created_at/updated_at to existing shops table
+    await pool.query('ALTER TABLE shops ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+    await pool.query('ALTER TABLE shops ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+    
+    // Update existing rows that might not have timestamps
+    await pool.query('UPDATE shops SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL');
+    await pool.query('UPDATE shops SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL');
+
     // Create indexes for better performance
     await pool.query('CREATE INDEX IF NOT EXISTS idx_shops_shop ON shops(shop)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_charges_shop ON charges(shop)');
