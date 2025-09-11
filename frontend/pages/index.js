@@ -248,21 +248,20 @@ function Home() {
           billingResponse: response.data
         });
         
-        // Use full page redirect to avoid X-Frame-Options issues
-        // Shopify admin pages cannot be displayed in iframes
-        if (app) {
-          console.log('🔗 [FRONTEND] Using App Bridge full page redirect for embedded billing');
-          const redirect = Redirect.create(app);
-          
-          // Use REMOTE redirect to break out of the iframe and navigate to the full URL
-          console.log('🔄 [FRONTEND] Redirecting to full Shopify pricing URL:', shopifyPricingUrl);
-          
-          redirect.dispatch(Redirect.Action.REMOTE, {
-            url: shopifyPricingUrl,
-            newContext: true
-          });
-        } else {
-          console.log('🌐 [FRONTEND] Using window.location redirect for standalone billing');
+        // Force complete navigation out of embedded app to external Shopify pricing page
+        // This ensures we break out of any iframe context completely
+        console.log('🔄 [FRONTEND] Forcing top-level navigation to Shopify pricing:', shopifyPricingUrl);
+        
+        try {
+          // Use top-level window to break out of any embedded context
+          if (typeof window !== 'undefined' && window.top) {
+            window.top.location.href = shopifyPricingUrl;
+          } else {
+            window.location.href = shopifyPricingUrl;
+          }
+        } catch (e) {
+          // Fallback if top-level access is blocked
+          console.log('🚨 [FRONTEND] Top-level redirect blocked, using fallback');
           window.location.href = shopifyPricingUrl;
         }
       }
