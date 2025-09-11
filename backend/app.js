@@ -1016,7 +1016,7 @@ app.post('/install-theme-block', async (req, res) => {
 // Shopify Managed Pricing now handles all billing callbacks automatically
 // The app will receive webhook notifications for subscription events instead
 
-// Billing status endpoint
+// Billing status endpoint for managed pricing
 app.get('/billing/status', (req, res, next) => {
   // Skip session token verification for billing status checks
   next();
@@ -1030,21 +1030,130 @@ app.get('/billing/status', (req, res, next) => {
   try {
     const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
     
-    // With managed pricing, we need to check the shop's subscription status via GraphQL Admin API
-    // For now, we'll continue checking our database for active charges
-    // This endpoint will be updated when subscription webhooks are implemented
-    const result = await pool.query(
-      'SELECT * FROM charges WHERE shop = $1 AND status = $2 ORDER BY created_at DESC LIMIT 1',
-      [shopDomain, 'active']
-    );
-    
-    res.json({
-      hasActivePlan: result.rows.length > 0,
-      plan: result.rows[0] || null,
-      managedPricing: true // Indicate that we're using managed pricing
+    console.log('💳 [BACKEND] Checking billing status for managed pricing:', {
+      shop: shopDomain,
+      timestamp: new Date().toISOString()
     });
+    
+    // Get shop's access token for GraphQL API call
+    const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shopDomain]);
+    
+    if (shopResult.rows.length === 0) {
+      console.log('🚫 [BACKEND] Shop not found in database:', shopDomain);
+      return res.json({
+        hasActivePlan: false,
+        plan: null,
+        managedPricing: true,
+        error: 'Shop not installed'
+      });
+    }
+    
+    const { access_token } = shopResult.rows[0];
+    
+    if (!access_token) {
+      console.log('🚫 [BACKEND] No access token found for shop:', shopDomain);
+      return res.json({
+        hasActivePlan: false,
+        plan: null,
+        managedPricing: true,
+        error: 'No access token'
+      });
+    }
+    
+    // Query Shopify's GraphQL Admin API for current app subscription
+    const graphqlQuery = `
+      query {
+        currentAppInstallation {
+          activeSubscriptions {
+            id
+            name
+            status
+            createdAt
+            trialDays
+            test
+            lineItems {
+              plan {
+                pricingDetails {
+                  ... on AppRecurringPricing {
+                    price {
+                      amount
+                      currencyCode
+                    }
+                    interval
+                  }
+                  ... on AppUsagePricing {
+                    balanceUsed {
+                      amount
+                      currencyCode
+                    }
+                    cappedAmount {
+                      amount
+                      currencyCode
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+    
+    try {
+      const graphqlResponse = await axios.post(
+        `https://${shopDomain}/admin/api/2023-10/graphql.json`,
+        { query: graphqlQuery },
+        {
+          headers: {
+            'X-Shopify-Access-Token': access_token,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      const subscriptions = graphqlResponse.data?.data?.currentAppInstallation?.activeSubscriptions || [];
+      const hasActiveSubscription = subscriptions.length > 0 && subscriptions.some(sub => sub.status === 'ACTIVE');
+      
+      console.log('✅ [BACKEND] GraphQL subscription check result:', {
+        shop: shopDomain,
+        subscriptionsCount: subscriptions.length,
+        hasActiveSubscription,
+        subscriptions: subscriptions.map(sub => ({
+          id: sub.id,
+          name: sub.name,
+          status: sub.status,
+          test: sub.test
+        }))
+      });
+      
+      res.json({
+        hasActivePlan: hasActiveSubscription,
+        plan: hasActiveSubscription ? subscriptions.find(sub => sub.status === 'ACTIVE') : null,
+        managedPricing: true,
+        subscriptions: subscriptions
+      });
+    } catch (graphqlError) {
+      console.error('❌ [BACKEND] GraphQL API error, falling back to database check:', {
+        error: graphqlError.message,
+        status: graphqlError.response?.status,
+        shop: shopDomain
+      });
+      
+      // Fallback to database check if GraphQL fails
+      const result = await pool.query(
+        'SELECT * FROM charges WHERE shop = $1 AND status = $2 ORDER BY created_at DESC LIMIT 1',
+        [shopDomain, 'active']
+      );
+      
+      res.json({
+        hasActivePlan: result.rows.length > 0,
+        plan: result.rows[0] || null,
+        managedPricing: true,
+        fallbackUsed: true
+      });
+    }
   } catch (error) {
-    console.error('Billing status error:', error);
+    console.error('💥 [BACKEND] Billing status error:', error);
     res.status(500).json({ error: 'Failed to check billing status' });
   }
 });
@@ -1068,36 +1177,108 @@ app.post('/webhooks/app/subscription', verifyWebhook, async (req, res) => {
   console.log('📊 [BACKEND] Subscription webhook received:', {
     shop,
     topic,
-    payload: payload
+    subscriptionId: payload.app_subscription?.id,
+    status: payload.app_subscription?.status,
+    timestamp: new Date().toISOString()
   });
   
   try {
-    // Handle different subscription events based on the topic
-    if (topic === 'app_subscriptions/update') {
-      // Subscription was updated (this is the correct topic format from Shopify)
-      await pool.query(
-        'UPDATE charges SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE charge_id = $2',
-        [payload.app_subscription.status, payload.app_subscription.id.toString()]
-      );
-      
-      // If subscription is active, update shop's plan
-      if (payload.app_subscription.status === 'active') {
+    const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
+    
+    // Handle different subscription webhook topics
+    switch(topic) {
+      case 'app_subscriptions/create':
+        // A new subscription was created
+        console.log('✅ [BACKEND] Processing subscription creation:', {
+          subscriptionId: payload.app_subscription.id,
+          status: payload.app_subscription.status,
+          shop: shopDomain
+        });
+        
         await pool.query(
-          'UPDATE shops SET plan = $1, plan_updated_at = NOW() WHERE shop = $2',
-          ['managed', shop]
+          `INSERT INTO charges (shop, charge_id, type, status, amount, currency, created_at, updated_at) 
+           VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) 
+           ON CONFLICT (charge_id) DO UPDATE SET 
+           status = EXCLUDED.status, 
+           updated_at = NOW()`,
+          [
+            shopDomain, 
+            payload.app_subscription.id.toString(), 
+            'managed_subscription', 
+            payload.app_subscription.status.toLowerCase(), 
+            payload.app_subscription.line_items?.[0]?.plan?.pricing_details?.price?.amount || 0,
+            payload.app_subscription.line_items?.[0]?.plan?.pricing_details?.price?.currency_code || 'USD'
+          ]
         );
-      }
-    } else {
-      console.log(`Received webhook for topic: ${topic} - storing information for reference`);
-      // Log the payload for debugging and future implementation
-      console.log('Webhook payload:', JSON.stringify(payload, null, 2));
+        break;
+        
+      case 'app_subscriptions/update':
+        // Subscription was updated
+        console.log('🔄 [BACKEND] Processing subscription update:', {
+          subscriptionId: payload.app_subscription.id,
+          status: payload.app_subscription.status,
+          shop: shopDomain
+        });
+        
+        await pool.query(
+          'UPDATE charges SET status = $1, updated_at = NOW() WHERE charge_id = $2 AND shop = $3',
+          [payload.app_subscription.status.toLowerCase(), payload.app_subscription.id.toString(), shopDomain]
+        );
+        break;
+        
+      case 'app_subscriptions/cancel':
+        // Subscription was cancelled
+        console.log('❌ [BACKEND] Processing subscription cancellation:', {
+          subscriptionId: payload.app_subscription.id,
+          shop: shopDomain
+        });
+        
+        await pool.query(
+          'UPDATE charges SET status = $1, updated_at = NOW() WHERE charge_id = $2 AND shop = $3',
+          ['cancelled', payload.app_subscription.id.toString(), shopDomain]
+        );
+        break;
+        
+      default:
+        console.log(`⚠️ [BACKEND] Unhandled subscription webhook topic: ${topic}`);
     }
+    
+    console.log('✅ [BACKEND] Subscription webhook processed successfully:', {
+      shop: shopDomain,
+      topic,
+      subscriptionId: payload.app_subscription?.id
+    });
     
     res.status(200).send('Webhook processed');
   } catch (error) {
-    console.error('Subscription webhook error:', error);
+    console.error('💥 [BACKEND] Subscription webhook error:', {
+      error: error.message,
+      stack: error.stack,
+      shop,
+      topic,
+      payload: JSON.stringify(payload, null, 2)
+    });
     res.status(500).send('Error processing webhook');
   }
+});
+
+// Additional webhook endpoints for specific subscription events
+app.post('/webhooks/app_subscriptions/create', verifyWebhook, async (req, res) => {
+  // Forward to main subscription handler
+  req.headers['x-shopify-topic'] = 'app_subscriptions/create';
+  return app._router.handle(req, res, () => {});
+});
+
+app.post('/webhooks/app_subscriptions/update', verifyWebhook, async (req, res) => {
+  // Forward to main subscription handler
+  req.headers['x-shopify-topic'] = 'app_subscriptions/update';
+  return app._router.handle(req, res, () => {});
+});
+
+app.post('/webhooks/app_subscriptions/cancel', verifyWebhook, async (req, res) => {
+  // Forward to main subscription handler
+  req.headers['x-shopify-topic'] = 'app_subscriptions/cancel';
+  return app._router.handle(req, res, () => {});
 });
 
 // App uninstalled webhook

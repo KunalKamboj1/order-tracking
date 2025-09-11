@@ -234,9 +234,14 @@ function Home() {
       if (!response.data.hasActivePlan) {
         // For managed pricing, redirect directly to Shopify's managed pricing page
         const clientId = process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID || '2d20e8e11bb0f54c316c6394ad8488d1';
-        const shopifyPricingUrl = `https://${effectiveShop}/admin/apps/${clientId}/pricing`;
+        
+        // Normalize shop domain to ensure it includes .myshopify.com
+        const normalizedShop = effectiveShop.includes('.myshopify.com') ? effectiveShop : `${effectiveShop}.myshopify.com`;
+        const shopifyPricingUrl = `https://${normalizedShop}/admin/apps/${clientId}/pricing`;
         
         console.log('💳 [FRONTEND] No active billing, redirecting to Shopify managed pricing:', {
+          originalShop: effectiveShop,
+          normalizedShop,
           shopifyPricingUrl,
           isEmbedded,
           hasAppBridge: !!app,

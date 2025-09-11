@@ -12,8 +12,7 @@ scopes = "read_orders,read_fulfillments"
 
 [auth]
 redirect_urls = [
-  "https://order-tracking-pro.onrender.com/callback",
-  "https://order-tracking-pro.onrender.com/billing/callback"
+  "https://order-tracking-pro.onrender.com/callback"
 ]
 
 [webhooks]
@@ -24,10 +23,8 @@ api_version = "2024-10"
 topics = ["app/uninstalled"]
 uri = "https://order-tracking-pro.onrender.com/webhooks/app/uninstalled"
 
-# Subscription webhooks for managed pricing
-[[webhooks.subscriptions]]
-topics = ["app_subscriptions/update"]
-uri = "https://order-tracking-pro.onrender.com/webhooks/app/subscription"
+# Subscription webhooks for managed pricing will be configured automatically
+# when using Shopify Managed Pricing
 
 # GDPR Compliance webhooks (MANDATORY for App Store)
 [[webhooks.subscriptions]]
