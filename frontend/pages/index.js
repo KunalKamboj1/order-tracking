@@ -232,13 +232,12 @@ function Home() {
       }
       
       if (!response.data.hasActivePlan) {
-        // Redirect to pricing page if no active billing (preserve host)
-        const params = new URLSearchParams({ shop: effectiveShop });
-        if (host) params.set('host', host);
-        const pricingUrl = `/pricing?${params.toString()}`;
+        // For managed pricing, redirect directly to Shopify's managed pricing page
+        const clientId = process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID || '2d20e8e11bb0f54c316c6394ad8488d1';
+        const shopifyPricingUrl = `https://${effectiveShop}/admin/apps/${clientId}/pricing`;
         
-        console.log('💳 [FRONTEND] No active billing, redirecting to pricing:', {
-          pricingUrl,
+        console.log('💳 [FRONTEND] No active billing, redirecting to Shopify managed pricing:', {
+          shopifyPricingUrl,
           isEmbedded,
           hasAppBridge: !!app,
           billingResponse: response.data
@@ -246,14 +245,15 @@ function Home() {
         
         // Use App Bridge redirect for embedded apps, fallback to window.location for standalone
         if (isEmbedded && app) {
-          console.log('🔗 [FRONTEND] Using App Bridge redirect for embedded pricing');
+          console.log('🔗 [FRONTEND] Using App Bridge redirect for embedded billing');
           const redirect = Redirect.create(app);
-          redirect.dispatch(Redirect.Action.APP, {
-            path: pricingUrl
+          redirect.dispatch(Redirect.Action.REMOTE, {
+            url: shopifyPricingUrl,
+            newContext: true
           });
         } else {
-          console.log('🌐 [FRONTEND] Using window.location redirect for standalone pricing');
-          window.location.href = pricingUrl;
+          console.log('🌐 [FRONTEND] Using window.location redirect for standalone billing');
+          window.location.href = shopifyPricingUrl;
         }
       }
     } catch (error) {
