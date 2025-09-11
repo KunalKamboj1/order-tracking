@@ -257,7 +257,7 @@ function Home() {
         const appHandle = process.env.NEXT_PUBLIC_SHOPIFY_APP_HANDLE || '2d20e8e11bb0f54c316c6394ad8488d1';
         
         // Use Shopify's official managed pricing URL format
-        const managedPricingUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
+        const managedPricingUrl = `https://admin.shopify.com/charges/${appHandle}/pricing_plans`;
         
         console.log('💳 [FRONTEND] No active billing, redirecting to Shopify managed pricing:', {
           originalShop: effectiveShop,
