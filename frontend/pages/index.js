@@ -244,7 +244,7 @@ function Home() {
         });
         
         // Use App Bridge redirect for embedded apps, fallback to window.location for standalone
-        if (isEmbedded && app) {
+        if (app) {
           console.log('🔗 [FRONTEND] Using App Bridge redirect for embedded billing');
           const redirect = Redirect.create(app);
           
