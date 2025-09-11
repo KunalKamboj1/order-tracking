@@ -248,18 +248,18 @@ function Home() {
           billingResponse: response.data
         });
         
-        // Use App Bridge redirect for embedded apps, fallback to window.location for standalone
+        // Use full page redirect to avoid X-Frame-Options issues
+        // Shopify admin pages cannot be displayed in iframes
         if (app) {
-          console.log('🔗 [FRONTEND] Using App Bridge redirect for embedded billing');
+          console.log('🔗 [FRONTEND] Using App Bridge full page redirect for embedded billing');
           const redirect = Redirect.create(app);
           
-          // Extract the admin path from the full URL to avoid X-Frame-Options issue
-          // Format: /admin/apps/{client_id}/pricing
-          const adminPath = `/admin/apps/${clientId}/pricing`;
-          console.log('🔄 [FRONTEND] Redirecting to admin path:', adminPath);
+          // Use REMOTE redirect to break out of the iframe and navigate to the full URL
+          console.log('🔄 [FRONTEND] Redirecting to full Shopify pricing URL:', shopifyPricingUrl);
           
-          redirect.dispatch(Redirect.Action.ADMIN_PATH, {
-            path: adminPath
+          redirect.dispatch(Redirect.Action.REMOTE, {
+            url: shopifyPricingUrl,
+            newContext: true
           });
         } else {
           console.log('🌐 [FRONTEND] Using window.location redirect for standalone billing');
