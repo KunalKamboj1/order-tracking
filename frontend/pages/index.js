@@ -65,6 +65,10 @@ function Home() {
       const shopFromUrl = urlParams.get('shop');
       const host = urlParams.get('host');
       const allParams = Object.fromEntries(urlParams.entries());
+      
+      // Check if we're returning from OAuth (has code parameter)
+      const oauthCode = urlParams.get('code');
+      const isOAuthReturn = !!oauthCode;
 
       // Determine effective shop: URL param or derive from host
       let effectiveShop = shopFromUrl;
@@ -89,6 +93,7 @@ function Home() {
         host,
         allUrlParams: allParams,
         currentUrl: window.location.href,
+        isOAuthReturn,
         timestamp: new Date().toISOString()
       });
       
@@ -153,6 +158,18 @@ function Home() {
               status,
               needsAuth
             });
+            
+            // Only check billing after OAuth is complete
+            if (isOAuthReturn) {
+              console.log('🔄 [FRONTEND] OAuth completed, waiting before billing check...');
+              // Wait a moment for OAuth to fully complete on backend
+              setTimeout(() => {
+                checkBillingStatus();
+              }, 2000);
+            } else {
+              // Normal app load, check billing immediately
+              checkBillingStatus();
+            }
           }
         } catch (error) {
           console.error('❌ [FRONTEND] Shop status check failed:', {
@@ -162,6 +179,9 @@ function Home() {
             shop: effectiveShop
           });
           // Continue loading the app even if status check fails
+          if (!isOAuthReturn) {
+            checkBillingStatus();
+          }
         }
       } else {
         console.log('⚠️ [FRONTEND] No shop parameter found in URL and unable to derive from host:', {
@@ -187,9 +207,6 @@ function Home() {
       setSuccess('');
       setError('An error occurred during billing. Please try again.');
     }
-    
-    // Check billing status after component mounts
-    checkBillingStatus();
   }, [app]);
 
   const checkBillingStatus = async () => {
@@ -255,12 +272,11 @@ function Home() {
         
         // Use App Bridge redirect with REMOTE action for embedded apps
         if (app) {
-          console.log('🔗 [FRONTEND] Using App Bridge REMOTE redirect with newContext');
+          console.log('🔗 [FRONTEND] Using App Bridge REMOTE redirect in same context');
           const redirect = Redirect.create(app);
           
           redirect.dispatch(Redirect.Action.REMOTE, {
-            url: managedPricingUrl,
-            newContext: true
+            url: managedPricingUrl
           });
         } else {
           console.log('🌐 [FRONTEND] Using window.top.location for fallback');

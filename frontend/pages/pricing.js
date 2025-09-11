@@ -78,8 +78,7 @@ function PricingPage() {
         
         // Use REMOTE redirect with target _top as per Shopify documentation
         redirect.dispatch(Redirect.Action.REMOTE, {
-          url: managedPricingUrl,
-          newContext: true
+          url: managedPricingUrl
         });
       } else {
         console.log('🌐 [PRICING] Using window.top.location for fallback');
