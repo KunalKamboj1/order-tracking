@@ -10,9 +10,6 @@ embedded = true
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_orders,read_fulfillments"
 
-[billing]
-recurring_billing = true
-
 [auth]
 redirect_urls = [
   "https://order-tracking-pro.onrender.com/callback",
@@ -32,14 +29,6 @@ uri = "https://order-tracking-pro.onrender.com/webhooks/app/uninstalled"
 topics = ["app_subscriptions/update"]
 uri = "https://order-tracking-pro.onrender.com/webhooks/app/subscription"
 
-[[webhooks.subscriptions]]
-topics = ["app_subscriptions/create"]
-uri = "https://order-tracking-pro.onrender.com/webhooks/app/subscription"
-
-[[webhooks.subscriptions]]
-topics = ["app_subscriptions/cancel"]
-uri = "https://order-tracking-pro.onrender.com/webhooks/app/subscription"
-
 # GDPR Compliance webhooks (MANDATORY for App Store)
 [[webhooks.subscriptions]]
 compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
@@ -54,4 +43,3 @@ embedded = false
 [build]
 automatically_update_urls_on_dev = true 
 dev_store_url = "https://iwanthisproduct.myshopify.com/"
-include_config_on_deploy = true

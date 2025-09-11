@@ -4,6 +4,7 @@
 api_version = "2024-07"
 
 [[extensions]]
+uid = "3a4d63d3-ea74-0f24-6a08-e5b414afa6b6933864f7"
 type = "theme"
 name = "Order Tracking Widget"
 handle = "tracking-widget"

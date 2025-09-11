@@ -1062,49 +1062,35 @@ app.get('/webhooks/test', (req, res) => {
 // Subscription events webhook for managed pricing
 app.post('/webhooks/app/subscription', verifyWebhook, async (req, res) => {
   const shop = req.get('X-Shopify-Shop-Domain');
+  const topic = req.get('X-Shopify-Topic');
   const payload = req.body;
   
   console.log('📊 [BACKEND] Subscription webhook received:', {
     shop,
-    topic: req.get('X-Shopify-Topic'),
-    eventType: payload.type
+    topic,
+    payload: payload
   });
   
   try {
-    // Handle different subscription events
-    switch(payload.type) {
-      case 'subscription/created':
-        // A new subscription was created
-        await pool.query(
-          'INSERT INTO charges (shop, charge_id, type, status, amount) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (charge_id) DO UPDATE SET status = EXCLUDED.status',
-          [shop, payload.app_subscription.id.toString(), 'subscription', 'active', payload.app_subscription.amount]
-        );
-        
-        // Update shop's plan in database
+    // Handle different subscription events based on the topic
+    if (topic === 'app_subscriptions/update') {
+      // Subscription was updated (this is the correct topic format from Shopify)
+      await pool.query(
+        'UPDATE charges SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE charge_id = $2',
+        [payload.app_subscription.status, payload.app_subscription.id.toString()]
+      );
+      
+      // If subscription is active, update shop's plan
+      if (payload.app_subscription.status === 'active') {
         await pool.query(
           'UPDATE shops SET plan = $1, plan_updated_at = NOW() WHERE shop = $2',
           ['managed', shop]
         );
-        break;
-        
-      case 'subscription/updated':
-        // Subscription was updated
-        await pool.query(
-          'UPDATE charges SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE charge_id = $2',
-          [payload.app_subscription.status, payload.app_subscription.id.toString()]
-        );
-        break;
-        
-      case 'subscription/cancelled':
-        // Subscription was cancelled
-        await pool.query(
-          'UPDATE charges SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE charge_id = $2',
-          ['cancelled', payload.app_subscription.id.toString()]
-        );
-        break;
-        
-      default:
-        console.log(`Unhandled subscription event type: ${payload.type}`);
+      }
+    } else {
+      console.log(`Received webhook for topic: ${topic} - storing information for reference`);
+      // Log the payload for debugging and future implementation
+      console.log('Webhook payload:', JSON.stringify(payload, null, 2));
     }
     
     res.status(200).send('Webhook processed');
