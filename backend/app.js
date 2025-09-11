@@ -1006,436 +1006,15 @@ app.post('/install-theme-block', async (req, res) => {
   }
 });
 
-// Billing endpoints
-app.get('/billing/free', async (req, res) => {
-  const { shop, host } = req.query;
-  const allParams = req.query;
-  const timestamp = new Date().toISOString();
-  
-  console.log('🆓 [BACKEND] Free Plan Selection Started:', {
-    shop,
-    host,
-    allParams,
-    timestamp,
-    userAgent: req.get('User-Agent'),
-    referer: req.get('Referer')
-  });
-  
-  if (!shop) {
-    console.error('❌ [BACKEND] Free Plan Error: Missing shop parameter:', {
-      allParams,
-      timestamp
-    });
-    return res.status(400).json({ error: 'Shop parameter is required' });
-  }
-  
-  try {
-    const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
-    const chargeId = `free_${Date.now()}`;
-    
-    console.log('💾 [BACKEND] Storing free plan in database:', {
-      shopDomain,
-      chargeId,
-      planType: 'free',
-      status: 'active',
-      amount: 0.00,
-      timestamp
-    });
-    
-    // Store free plan in database
-    const insertResult = await pool.query(
-      'INSERT INTO charges (shop, charge_id, type, status, amount) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (charge_id) DO UPDATE SET status = EXCLUDED.status RETURNING *',
-      [shopDomain, chargeId, 'free', 'active', 0.00]
-    );
-    
-    console.log('✅ [BACKEND] Free plan stored successfully:', {
-      shopDomain,
-      insertedRecord: insertResult.rows[0],
-      rowsAffected: insertResult.rowCount,
-      timestamp
-    });
-    
-    // Redirect back to main app with success
-    const frontendUrl = process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app';
-    const redirectUrl = new URL('/', frontendUrl);
-    redirectUrl.searchParams.set('shop', shopDomain);
-    redirectUrl.searchParams.set('billing', 'success');
-    redirectUrl.searchParams.set('plan', 'free');
-    redirectUrl.searchParams.set('installed', 'true');
-    if (host) {
-      redirectUrl.searchParams.set('host', host);
-    }
-    
-    console.log('✅ [BACKEND] Free plan activated successfully, redirecting to main app:', {
-      shop: shopDomain,
-      redirectUrl: redirectUrl.toString(),
-      timestamp: new Date().toISOString()
-    });
-    
-    // Use script-based redirect to break out of iframe if embedded
-    res.send(`
-      <script>
-        if (window.top !== window.self) {
-          window.top.location.href = "${redirectUrl.toString()}";
-        } else {
-          window.location.href = "${redirectUrl.toString()}";
-        }
-      </script>
-    `);
-  } catch (error) {
-    console.error('Free plan activation error:', error);
-    const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
-    const frontendUrl = process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app';
-    const redirectUrl = new URL('/pricing', frontendUrl);
-    redirectUrl.searchParams.set('shop', shopDomain);
-    redirectUrl.searchParams.set('billing', 'error');
-    if (host) {
-      redirectUrl.searchParams.set('host', host);
-    }
-    
-    console.log('❌ [BACKEND] Free plan activation failed, redirecting to pricing:', {
-      shop: shopDomain,
-      error: error.message,
-      redirectUrl: redirectUrl.toString(),
-      timestamp: new Date().toISOString()
-    });
-    
-    // Use script-based redirect to break out of iframe if embedded
-    res.send(`
-      <script>
-        if (window.top !== window.self) {
-          window.top.location.href = "${redirectUrl.toString()}";
-        } else {
-          window.location.href = "${redirectUrl.toString()}";
-        }
-      </script>
-    `);
-  }
-});
+// Billing is now handled by Shopify Managed Pricing
+// Custom billing endpoints have been removed as part of migration to Shopify Managed Pricing
 
-app.get('/billing/subscribe', (req, res, next) => {
-  // Skip session token verification for billing redirects
-  next();
-}, async (req, res) => {
-  const { shop, host } = req.query;
-  
-  if (!shop) {
-    return res.status(400).json({ error: 'Shop parameter is required' });
-  }
-  
-  try {
-    const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
-    
-    // Get shop's access token
-    const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shopDomain]);
-    
-    if (shopResult.rows.length === 0) {
-      return res.status(401).json({ error: 'Shop not found' });
-    }
-    
-    const { access_token } = shopResult.rows[0];
-    const backendUrl = process.env.BACKEND_URL || 'https://order-tracking-pro.onrender.com';
-    
-    // Build return URL with host parameter if present
-    const returnUrl = new URL(`${backendUrl}/billing/callback`);
-    returnUrl.searchParams.set('shop', shopDomain);
-    returnUrl.searchParams.set('type', 'subscription');
-    if (host) {
-      returnUrl.searchParams.set('host', host);
-    }
-    
-    // Create recurring application charge
-    const chargeData = {
-      recurring_application_charge: {
-        name: 'Order Tracking Pro - Monthly',
-        price: 9.99,
-        return_url: returnUrl.toString(),
-        test: process.env.NODE_ENV !== 'production'
-      }
-    };
-    
-    const response = await axios.post(
-      `https://${shopDomain}/admin/api/2023-10/recurring_application_charges.json`,
-      chargeData,
-      {
-        headers: {
-          'X-Shopify-Access-Token': access_token,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    
-    const charge = response.data.recurring_application_charge;
-    
-    // Store charge in database
-    await pool.query(
-      'INSERT INTO charges (shop, charge_id, type, status, amount) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (charge_id) DO UPDATE SET status = EXCLUDED.status',
-      [shopDomain, charge.id.toString(), 'recurring', 'pending', charge.price]
-    );
-    
-    // Redirect to Shopify's confirmation URL using a script to handle iframe
-    const confirmationUrl = charge.confirmation_url;
-    
-    res.send(`
-      <script>
-        if (window.top !== window.self) {
-          window.top.location.href = "${confirmationUrl}";
-        } else {
-          window.location.href = "${confirmationUrl}";
-        }
-      </script>
-    `);
-  } catch (error) {
-    console.error('Subscription creation error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to create subscription' });
-  }
-});
+// Monthly and lifetime subscription endpoints have been removed
+// Billing is now handled by Shopify Managed Pricing
 
-app.get('/billing/lifetime', (req, res, next) => {
-  // Skip session token verification for billing redirects
-  next();
-}, async (req, res) => {
-  const { shop, host } = req.query;
-  
-  if (!shop) {
-    return res.status(400).json({ error: 'Shop parameter is required' });
-  }
-  
-  try {
-    const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
-    
-    // Get shop's access token
-    const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shopDomain]);
-    
-    if (shopResult.rows.length === 0) {
-      return res.status(401).json({ error: 'Shop not found' });
-    }
-    
-    const { access_token } = shopResult.rows[0];
-    const backendUrl = process.env.BACKEND_URL || 'https://order-tracking-pro.onrender.com';
-    
-    // Build return URL with host parameter if present
-    const returnUrl = new URL(`${backendUrl}/billing/callback`);
-    returnUrl.searchParams.set('shop', shopDomain);
-    returnUrl.searchParams.set('type', 'lifetime');
-    if (host) {
-      returnUrl.searchParams.set('host', host);
-    }
-    
-    // Create one-time application charge for lifetime plan
-    const chargeData = {
-      application_charge: {
-        name: 'Order Tracking Pro - Lifetime',
-        price: 99.99,
-        return_url: returnUrl.toString(),
-        test: process.env.NODE_ENV !== 'production'
-      }
-    };
-    
-    const response = await axios.post(
-      `https://${shopDomain}/admin/api/2023-10/application_charges.json`,
-      chargeData,
-      {
-        headers: {
-          'X-Shopify-Access-Token': access_token,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    
-    const charge = response.data.application_charge;
-    
-    // Store charge in database
-    await pool.query(
-      'INSERT INTO charges (shop, charge_id, type, status, amount) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (charge_id) DO UPDATE SET status = EXCLUDED.status',
-      [shopDomain, charge.id.toString(), 'lifetime', 'pending', charge.price]
-    );
-    
-    // Redirect to Shopify's confirmation URL using a script to handle iframe
-    const confirmationUrl = charge.confirmation_url;
-    
-    res.send(`
-      <script>
-        if (window.top !== window.self) {
-          window.top.location.href = "${confirmationUrl}";
-        } else {
-          window.location.href = "${confirmationUrl}";
-        }
-      </script>
-    `);
-  } catch (error) {
-    console.error('Lifetime charge creation error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to create lifetime charge' });
-  }
-});
-
-// Billing callback endpoint
-app.get('/billing/callback', async (req, res) => {
-  const { shop, charge_id, type, host } = req.query;
-  
-  console.log('💳 [BACKEND] Billing callback received:', {
-    shop,
-    charge_id,
-    type,
-    host,
-    allParams: req.query,
-    timestamp: new Date().toISOString()
-  });
-  
-  if (!shop || !charge_id) {
-    return res.status(400).json({ error: 'Missing required parameters' });
-  }
-  
-  try {
-    const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
-    
-    // Get shop's access token
-    const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shopDomain]);
-    
-    if (shopResult.rows.length === 0) {
-      return res.status(401).json({ error: 'Shop not found' });
-    }
-    
-    const { access_token } = shopResult.rows[0];
-    
-    let charge;
-    let apiEndpoint;
-    
-    if (type === 'subscription') {
-      // Get recurring charge details
-      apiEndpoint = `https://${shopDomain}/admin/api/2023-10/recurring_application_charges/${charge_id}.json`;
-    } else {
-      // Get one-time charge details
-      apiEndpoint = `https://${shopDomain}/admin/api/2023-10/application_charges/${charge_id}.json`;
-    }
-    
-    const response = await axios.get(apiEndpoint, {
-      headers: {
-        'X-Shopify-Access-Token': access_token
-      }
-    });
-    
-    if (type === 'subscription') {
-      charge = response.data.recurring_application_charge;
-    } else {
-      charge = response.data.application_charge;
-    }
-    
-    // Update charge status in database
-    await pool.query(
-      'UPDATE charges SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE charge_id = $2',
-      [charge.status, charge_id]
-    );
-    
-    if (charge.status === 'accepted' || charge.status === 'active') {
-      // Activate the charge if it's a subscription
-      if (type === 'subscription' && charge.status === 'accepted') {
-        await axios.post(
-          `https://${shopDomain}/admin/api/2023-10/recurring_application_charges/${charge_id}/activate.json`,
-          {},
-          {
-            headers: {
-              'X-Shopify-Access-Token': access_token
-            }
-          }
-        );
-        
-        // Update status to active
-        await pool.query(
-          'UPDATE charges SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE charge_id = $2',
-          ['active', charge_id]
-        );
-      }
-      
-      // Redirect to frontend app with success status
-      const frontendUrl = process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app';
-      const successUrl = new URL('/pricing', frontendUrl);
-      successUrl.searchParams.set('shop', shopDomain);
-      successUrl.searchParams.set('billing', 'success');
-      successUrl.searchParams.set('plan', type === 'subscription' ? 'monthly' : 'lifetime');
-      if (host) successUrl.searchParams.set('host', host);
-      
-      console.log('✅ [BACKEND] Billing success redirect:', {
-        successUrl: successUrl.toString(),
-        shopDomain,
-        host,
-        planType: type === 'subscription' ? 'monthly' : 'lifetime'
-      });
-      
-      // Use script-based redirect to handle iframe breakout
-      res.send(`
-        <script>
-          if (window.top !== window.self) {
-            window.top.location.href = "${successUrl.toString()}";
-          } else {
-            window.location.href = "${successUrl.toString()}";
-          }
-        </script>
-      `);
-    } else if (charge.status === 'declined') {
-      // Redirect to pricing page with error
-      const frontendUrl = process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app';
-      const errorUrl = new URL('/pricing', frontendUrl);
-      errorUrl.searchParams.set('shop', shopDomain);
-      errorUrl.searchParams.set('billing', 'declined');
-      if (host) errorUrl.searchParams.set('host', host);
-      
-      // Use script-based redirect to handle iframe breakout
-      res.send(`
-        <script>
-          if (window.top !== window.self) {
-            window.top.location.href = "${errorUrl.toString()}";
-          } else {
-            window.location.href = "${errorUrl.toString()}";
-          }
-        </script>
-      `);
-    } else {
-      // Handle other statuses
-      const frontendUrl = process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app';
-      const errorUrl = new URL('/pricing', frontendUrl);
-      errorUrl.searchParams.set('shop', shopDomain);
-      errorUrl.searchParams.set('billing', 'error');
-      errorUrl.searchParams.set('status', charge.status);
-      if (host) errorUrl.searchParams.set('host', host);
-      
-      // Use script-based redirect to handle iframe breakout
-      res.send(`
-        <script>
-          if (window.top !== window.self) {
-            window.top.location.href = "${errorUrl.toString()}";
-          } else {
-            window.location.href = "${errorUrl.toString()}";
-          }
-        </script>
-      `);
-    }
-  } catch (error) {
-    console.error('💥 [BACKEND] Billing callback error:', {
-      error: error.response?.data || error.message,
-      shop,
-      charge_id,
-      type,
-      host
-    });
-    const frontendUrl = process.env.FRONTEND_URL || 'https://order-tracking-pro.netlify.app';
-    const errorUrl = new URL('/pricing', frontendUrl);
-    errorUrl.searchParams.set('shop', shop || '');
-    errorUrl.searchParams.set('billing', 'error');
-    if (host) errorUrl.searchParams.set('host', host);
-    
-    // Use script-based redirect to handle iframe breakout
-    res.send(`
-      <script>
-        if (window.top !== window.self) {
-          window.top.location.href = "${errorUrl.toString()}";
-        } else {
-          window.location.href = "${errorUrl.toString()}";
-        }
-      </script>
-    `);
-  }
-});
+// Billing callback endpoint has been removed
+// Shopify Managed Pricing now handles all billing callbacks automatically
+// The app will receive webhook notifications for subscription events instead
 
 // Billing status endpoint
 app.get('/billing/status', (req, res, next) => {
@@ -1451,6 +1030,9 @@ app.get('/billing/status', (req, res, next) => {
   try {
     const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
     
+    // With managed pricing, we need to check the shop's subscription status via GraphQL Admin API
+    // For now, we'll continue checking our database for active charges
+    // This endpoint will be updated when subscription webhooks are implemented
     const result = await pool.query(
       'SELECT * FROM charges WHERE shop = $1 AND status = $2 ORDER BY created_at DESC LIMIT 1',
       [shopDomain, 'active']
@@ -1458,7 +1040,8 @@ app.get('/billing/status', (req, res, next) => {
     
     res.json({
       hasActivePlan: result.rows.length > 0,
-      plan: result.rows[0] || null
+      plan: result.rows[0] || null,
+      managedPricing: true // Indicate that we're using managed pricing
     });
   } catch (error) {
     console.error('Billing status error:', error);
@@ -1475,6 +1058,61 @@ app.get('/webhooks/test', (req, res) => {
 });
 
 // Webhook handlers
+
+// Subscription events webhook for managed pricing
+app.post('/webhooks/app/subscription', verifyWebhook, async (req, res) => {
+  const shop = req.get('X-Shopify-Shop-Domain');
+  const payload = req.body;
+  
+  console.log('📊 [BACKEND] Subscription webhook received:', {
+    shop,
+    topic: req.get('X-Shopify-Topic'),
+    eventType: payload.type
+  });
+  
+  try {
+    // Handle different subscription events
+    switch(payload.type) {
+      case 'subscription/created':
+        // A new subscription was created
+        await pool.query(
+          'INSERT INTO charges (shop, charge_id, type, status, amount) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (charge_id) DO UPDATE SET status = EXCLUDED.status',
+          [shop, payload.app_subscription.id.toString(), 'subscription', 'active', payload.app_subscription.amount]
+        );
+        
+        // Update shop's plan in database
+        await pool.query(
+          'UPDATE shops SET plan = $1, plan_updated_at = NOW() WHERE shop = $2',
+          ['managed', shop]
+        );
+        break;
+        
+      case 'subscription/updated':
+        // Subscription was updated
+        await pool.query(
+          'UPDATE charges SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE charge_id = $2',
+          [payload.app_subscription.status, payload.app_subscription.id.toString()]
+        );
+        break;
+        
+      case 'subscription/cancelled':
+        // Subscription was cancelled
+        await pool.query(
+          'UPDATE charges SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE charge_id = $2',
+          ['cancelled', payload.app_subscription.id.toString()]
+        );
+        break;
+        
+      default:
+        console.log(`Unhandled subscription event type: ${payload.type}`);
+    }
+    
+    res.status(200).send('Webhook processed');
+  } catch (error) {
+    console.error('Subscription webhook error:', error);
+    res.status(500).send('Error processing webhook');
+  }
+});
 
 // App uninstalled webhook
 app.post('/webhooks/app/uninstalled', verifyWebhook, async (req, res) => {

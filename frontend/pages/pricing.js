@@ -79,15 +79,6 @@ function PricingPage() {
     setSuccess('');
 
     try {
-      let endpoint;
-      if (planType === 'free') {
-        endpoint = 'free';
-      } else if (planType === 'monthly') {
-        endpoint = 'subscribe';
-      } else {
-        endpoint = 'lifetime';
-      }
-      
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://order-tracking-pro.onrender.com';
       const host = window.__HOST_PARAM__ || new URLSearchParams(window.location.search).get('host');
       
@@ -116,13 +107,13 @@ function PricingPage() {
         console.warn('Shop status check failed, proceeding with billing:', statusError);
       }
       
-      // Proceed with billing
-      const billingUrl = new URL(`${backendUrl}/billing/${endpoint}`);
-      billingUrl.searchParams.set('shop', shop);
-      if (host) billingUrl.searchParams.set('host', host);
+      // Redirect to Shopify's managed pricing page
+      // The URL format is: https://{shop}/admin/apps/{client_id}/pricing
+      const clientId = process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID || '2d20e8e11bb0f54c316c6394ad8488d1';
+      const shopifyPricingUrl = `https://${shop}/admin/apps/${clientId}/pricing`;
       
-      console.log('💳 [PRICING] Proceeding with billing:', {
-        billingUrl: billingUrl.toString(),
+      console.log('💳 [PRICING] Redirecting to Shopify managed pricing:', {
+        shopifyPricingUrl,
         planType,
         isEmbedded,
         hasAppBridge: !!app
@@ -133,14 +124,15 @@ function PricingPage() {
         console.log('🔗 [PRICING] Using App Bridge redirect for embedded billing');
         const redirect = Redirect.create(app);
         redirect.dispatch(Redirect.Action.REMOTE, {
-          url: billingUrl.toString(),
+          url: shopifyPricingUrl,
           newContext: true
         });
       } else {
         console.log('🌐 [PRICING] Using window.location redirect for standalone billing');
-        window.location.href = billingUrl.toString();
+        window.location.href = shopifyPricingUrl;
       }
     } catch (err) {
+      console.error('Failed to initiate billing process:', err);
       setError('Failed to initiate billing process. Please try again.');
       setLoading(prev => ({ ...prev, [planType]: false }));
     }
