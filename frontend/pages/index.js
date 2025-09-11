@@ -232,37 +232,49 @@ function Home() {
       }
       
       if (!response.data.hasActivePlan) {
-        // For managed pricing, redirect directly to Shopify's managed pricing page
-        const clientId = process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID || '2d20e8e11bb0f54c316c6394ad8488d1';
-        
-        // Normalize shop domain to ensure it includes .myshopify.com
+        // For managed pricing, redirect to Shopify's official managed pricing page
         const normalizedShop = effectiveShop.includes('.myshopify.com') ? effectiveShop : `${effectiveShop}.myshopify.com`;
-        const shopifyPricingUrl = `https://${normalizedShop}/admin/apps/${clientId}/pricing`;
+        const storeHandle = normalizedShop.replace('.myshopify.com', '');
+        
+        // Get app handle from environment or use client ID as fallback
+        const appHandle = process.env.NEXT_PUBLIC_SHOPIFY_APP_HANDLE || '2d20e8e11bb0f54c316c6394ad8488d1';
+        
+        // Use Shopify's official managed pricing URL format
+        const managedPricingUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
         
         console.log('💳 [FRONTEND] No active billing, redirecting to Shopify managed pricing:', {
           originalShop: effectiveShop,
           normalizedShop,
-          shopifyPricingUrl,
+          storeHandle,
+          appHandle,
+          managedPricingUrl,
           isEmbedded,
           hasAppBridge: !!app,
           billingResponse: response.data
         });
         
-        // Force complete navigation out of embedded app to external Shopify pricing page
-        // This ensures we break out of any iframe context completely
-        console.log('🔄 [FRONTEND] Forcing top-level navigation to Shopify pricing:', shopifyPricingUrl);
-        
-        try {
-          // Use top-level window to break out of any embedded context
-          if (typeof window !== 'undefined' && window.top) {
-            window.top.location.href = shopifyPricingUrl;
-          } else {
-            window.location.href = shopifyPricingUrl;
+        // Use App Bridge redirect with REMOTE action for embedded apps
+        if (app) {
+          console.log('🔗 [FRONTEND] Using App Bridge REMOTE redirect with newContext');
+          const redirect = Redirect.create(app);
+          
+          redirect.dispatch(Redirect.Action.REMOTE, {
+            url: managedPricingUrl,
+            newContext: true
+          });
+        } else {
+          console.log('🌐 [FRONTEND] Using window.top.location for fallback');
+          // Fallback: force top-level navigation
+          try {
+            if (window.top) {
+              window.top.location.href = managedPricingUrl;
+            } else {
+              window.location.href = managedPricingUrl;
+            }
+          } catch (e) {
+            console.log('🚨 [FRONTEND] Top-level redirect blocked, using fallback');
+            window.location.href = managedPricingUrl;
           }
-        } catch (e) {
-          // Fallback if top-level access is blocked
-          console.log('🚨 [FRONTEND] Top-level redirect blocked, using fallback');
-          window.location.href = shopifyPricingUrl;
         }
       }
     } catch (error) {

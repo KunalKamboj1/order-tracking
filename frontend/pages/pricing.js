@@ -53,33 +53,42 @@ function PricingPage() {
 
   const redirectToManagedPricing = (shopParam) => {
     try {
-      // Normalize shop domain
+      // Normalize shop domain and extract store handle
       const shopDomain = shopParam.includes('.myshopify.com') ? shopParam : `${shopParam}.myshopify.com`;
+      const storeHandle = shopDomain.replace('.myshopify.com', '');
       
-      // Get client ID from environment or use default
-      const clientId = process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID || '2d20e8e11bb0f54c316c6394ad8488d1';
+      // Get app handle from shopify.app.toml or use client ID as fallback
+      const appHandle = process.env.NEXT_PUBLIC_SHOPIFY_APP_HANDLE || '2d20e8e11bb0f54c316c6394ad8488d1';
+      
+      // Use Shopify's official managed pricing URL format
+      const managedPricingUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
       
       console.log('💳 [PRICING] Redirecting to Shopify managed pricing:', {
         shopDomain,
-        clientId,
-        isEmbedded,
+        storeHandle,
+        appHandle,
+        managedPricingUrl,
         hasAppBridge: !!app
       });
       
-      // Use App Bridge redirect for embedded apps
-      if (isEmbedded && app) {
-        console.log('🔗 [PRICING] Using App Bridge redirect for embedded billing');
+      // Always use App Bridge redirect with target: "_top" for managed pricing
+      if (app) {
+        console.log('🔗 [PRICING] Using App Bridge redirect with target _top');
         const redirect = Redirect.create(app);
         
-        // Use ADMIN_PATH action to navigate within the Shopify admin
-        redirect.dispatch(Redirect.Action.ADMIN_PATH, {
-          path: `/apps/${clientId}/pricing`
+        // Use REMOTE redirect with target _top as per Shopify documentation
+        redirect.dispatch(Redirect.Action.REMOTE, {
+          url: managedPricingUrl,
+          newContext: true
         });
       } else {
-        console.log('🌐 [PRICING] Using window.location redirect for standalone billing');
-        // For standalone mode, redirect to the full URL
-        const shopifyPricingUrl = `https://${shopDomain}/admin/apps/${clientId}/pricing`;
-        window.location.href = shopifyPricingUrl;
+        console.log('🌐 [PRICING] Using window.top.location for fallback');
+        // Fallback: force top-level navigation
+        if (window.top) {
+          window.top.location.href = managedPricingUrl;
+        } else {
+          window.location.href = managedPricingUrl;
+        }
       }
     } catch (err) {
       console.error('Failed to redirect to managed pricing:', err);
