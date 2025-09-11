@@ -247,9 +247,14 @@ function Home() {
         if (isEmbedded && app) {
           console.log('🔗 [FRONTEND] Using App Bridge redirect for embedded billing');
           const redirect = Redirect.create(app);
-          redirect.dispatch(Redirect.Action.REMOTE, {
-            url: shopifyPricingUrl,
-            newContext: true
+          
+          // Extract the admin path from the full URL to avoid X-Frame-Options issue
+          // Format: /admin/apps/{client_id}/pricing
+          const adminPath = `/admin/apps/${clientId}/pricing`;
+          console.log('🔄 [FRONTEND] Redirecting to admin path:', adminPath);
+          
+          redirect.dispatch(Redirect.Action.ADMIN_PATH, {
+            path: adminPath
           });
         } else {
           console.log('🌐 [FRONTEND] Using window.location redirect for standalone billing');
