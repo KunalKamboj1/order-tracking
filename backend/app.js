@@ -109,7 +109,7 @@ app.use((req, res, next) => {
   }
 });
 
-// Helper function to check if shop has active billing
+// Helper function to check if shop has active billing (updated for managed pricing)
 const hasActiveBilling = async (shop) => {
   try {
     // Normalize shop domain format
@@ -121,26 +121,88 @@ const hasActiveBilling = async (shop) => {
       timestamp: new Date().toISOString()
     });
     
-    const result = await pool.query(
-      'SELECT * FROM charges WHERE shop = $1 AND status = $2 ORDER BY created_at DESC LIMIT 1',
-      [shopDomain, 'active']
-    );
+    // Get shop's access token for GraphQL API call
+    const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shopDomain]);
     
-    console.log('💳 [BACKEND] Billing query result:', {
-      shopDomain,
-      foundActiveCharges: result.rows.length > 0,
-      chargeCount: result.rows.length,
-      latestCharge: result.rows.length > 0 ? {
-        chargeId: result.rows[0].charge_id,
-        type: result.rows[0].type,
-        status: result.rows[0].status,
-        amount: result.rows[0].amount,
-        createdAt: result.rows[0].created_at
-      } : null,
-      timestamp: new Date().toISOString()
-    });
+    if (shopResult.rows.length === 0 || !shopResult.rows[0].access_token) {
+      console.log('🚫 [BACKEND] Shop not found or no access token:', shopDomain);
+      return false;
+    }
     
-    return result.rows.length > 0;
+    const { access_token } = shopResult.rows[0];
+    
+    // Query Shopify's GraphQL Admin API for current app subscription
+    const graphqlQuery = `
+      query {
+        currentAppInstallation {
+          activeSubscriptions {
+            id
+            name
+            status
+            test
+          }
+        }
+      }
+    `;
+    
+    try {
+      const graphqlResponse = await axios.post(
+        `https://${shopDomain}/admin/api/2023-10/graphql.json`,
+        { query: graphqlQuery },
+        {
+          headers: {
+            'X-Shopify-Access-Token': access_token,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      const subscriptions = graphqlResponse.data?.data?.currentAppInstallation?.activeSubscriptions || [];
+      const hasActiveSubscription = subscriptions.length > 0 && subscriptions.some(sub => sub.status === 'ACTIVE');
+      
+      console.log('💳 [BACKEND] Billing query result:', {
+        shopDomain,
+        foundActiveCharges: hasActiveSubscription,
+        chargeCount: subscriptions.length,
+        subscriptions: subscriptions.map(sub => ({
+          id: sub.id,
+          name: sub.name,
+          status: sub.status,
+          test: sub.test
+        })),
+        timestamp: new Date().toISOString()
+      });
+      
+      return hasActiveSubscription;
+    } catch (graphqlError) {
+      console.error('❌ [BACKEND] GraphQL API error, falling back to database check:', {
+        error: graphqlError.message,
+        status: graphqlError.response?.status,
+        shop: shopDomain
+      });
+      
+      // Fallback to database check if GraphQL fails
+      const result = await pool.query(
+        'SELECT * FROM charges WHERE shop = $1 AND status = $2 ORDER BY created_at DESC LIMIT 1',
+        [shopDomain, 'active']
+      );
+      
+      console.log('💳 [BACKEND] Fallback billing query result:', {
+        shopDomain,
+        foundActiveCharges: result.rows.length > 0,
+        chargeCount: result.rows.length,
+        latestCharge: result.rows.length > 0 ? {
+          chargeId: result.rows[0].charge_id,
+          type: result.rows[0].type,
+          status: result.rows[0].status,
+          amount: result.rows[0].amount,
+          createdAt: result.rows[0].created_at
+        } : null,
+        timestamp: new Date().toISOString()
+      });
+      
+      return result.rows.length > 0;
+    }
   } catch (error) {
     console.error('❌ [BACKEND] Error checking billing status:', {
       shop,
