@@ -1530,6 +1530,17 @@ app.get('/api/theme', async (req, res) => {
   } catch (error) {
     console.error('Theme API error:', error.response?.data || error.message);
     
+    // Check for specific OAuth scope error
+    if (error.response?.data?.errors && 
+        typeof error.response.data.errors === 'string' && 
+        error.response.data.errors.includes('read_themes scope')) {
+      return res.status(403).json({ 
+        error: 'Permission required', 
+        message: 'The app needs additional permissions to access theme information. Please reinstall or re-authorize the app.',
+        requiresReauth: true
+      });
+    }
+    
     if (error.response?.status === 401) {
       return res.status(401).json({ error: 'Authentication failed' });
     }

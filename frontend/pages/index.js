@@ -387,7 +387,13 @@ function Home() {
       return fetchedThemeId;
     } catch (error) {
       console.error('Failed to fetch theme ID:', error);
-      setError('Failed to fetch theme information. Please try again.');
+      
+      // Check if it's an OAuth scope error
+      if (error.response?.status === 403 && error.response?.data?.requiresReauth) {
+        setError('App permissions need to be updated. Please reinstall the app to access theme editor features.');
+      } else {
+        setError('Failed to fetch theme information. Please try again.');
+      }
       return null;
     } finally {
       setFetchingTheme(false);
