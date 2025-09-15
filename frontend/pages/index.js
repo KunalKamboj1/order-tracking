@@ -26,6 +26,8 @@ function Home() {
   const [success, setSuccess] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [appBridge, setAppBridge] = useState(null);
+  const [themeId, setThemeId] = useState(null);
+  const [fetchingTheme, setFetchingTheme] = useState(false);
   
   // Always call useAppBridge hook, but handle errors gracefully
   let app = null;
@@ -356,6 +358,73 @@ function Home() {
     }
   };
 
+  // Add new function to fetch theme ID
+  const fetchActiveThemeId = async () => {
+    if (themeId) return themeId; // Return cached value if available
+    
+    setFetchingTheme(true);
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const shop = urlParams.get('shop');
+      
+      if (!shop) {
+        throw new Error('Shop parameter not found');
+      }
+      
+      const requestUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/theme?shop=${encodeURIComponent(shop)}`;
+      
+      let response;
+      if (isEmbedded && window.apiCall) {
+        const fetchResponse = await window.apiCall(requestUrl);
+        const data = await fetchResponse.json();
+        response = { data };
+      } else {
+        response = await axios.get(requestUrl);
+      }
+      
+      const fetchedThemeId = response.data.themeId;
+      setThemeId(fetchedThemeId);
+      return fetchedThemeId;
+    } catch (error) {
+      console.error('Failed to fetch theme ID:', error);
+      setError('Failed to fetch theme information. Please try again.');
+      return null;
+    } finally {
+      setFetchingTheme(false);
+    }
+  };
+  
+  // Add new function to handle theme editor redirect
+  const handleThemeEditorRedirect = async () => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const shop = urlParams.get('shop');
+      
+      if (!shop) {
+        setError('Shop parameter not found');
+        return;
+      }
+      
+      const activeThemeId = await fetchActiveThemeId();
+      if (!activeThemeId) {
+        setError('Could not retrieve theme ID');
+        return;
+      }
+      
+      // Build the Shopify Theme Editor deep link
+      const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
+      const themeEditorUrl = `https://${shopDomain}/admin/themes/${activeThemeId}/editor?context=apps&activateAppId=${process.env.NEXT_PUBLIC_SHOPIFY_API_KEY}/tracking-widget`;
+      
+      console.log('Opening theme editor:', themeEditorUrl);
+      
+      // Open in new tab
+      window.open(themeEditorUrl, '_blank');
+    } catch (error) {
+      console.error('Theme editor redirect error:', error);
+      setError('Failed to open theme editor. Please try again.');
+    }
+  };
+
   const renderTrackingResults = () => {
     console.log('Rendering with trackingData:', trackingData);
     if (!trackingData) {
@@ -468,9 +537,25 @@ function Home() {
                 <li>Add the widget and customize its settings as needed</li> 
                 <li>Click "Save" to publish your changes</li> 
               </ol> 
-            </div> 
+            </div>
+            
+            {/* Add the new Theme Editor Button */}
+            <InlineStack gap="300" align="start">
+              <Button
+                primary
+                onClick={handleThemeEditorRedirect}
+                loading={fetchingTheme}
+                disabled={fetchingTheme}
+              >
+                {fetchingTheme ? 'Loading...' : 'Add Tracking Widget to Theme'}
+              </Button>
+            </InlineStack>
+            
             <TextContainer> 
               <p style={{ marginTop: '12px', fontSize: '14px', color: '#637381' }}> 
+                <strong>Quick Setup:</strong> Click the button above to open your theme editor directly with the tracking widget ready to install.
+              </p>
+              <p style={{ marginTop: '8px', fontSize: '14px', color: '#637381' }}> 
                 <strong>Note:</strong> The Order Tracking Widget will appear in the Apps section of your theme editor after the app is installed. 
               </p> 
             </TextContainer> 

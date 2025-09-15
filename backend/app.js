@@ -1479,6 +1479,65 @@ app.post('/webhooks/shop/redact', verifyWebhook, async (req, res) => {
   }
 });
 
+// Theme API endpoint to fetch active theme ID
+app.get('/api/theme', async (req, res) => {
+  const { shop } = req.query;
+  
+  if (!shop) {
+    return res.status(400).json({ error: 'Shop parameter is required' });
+  }
+  
+  try {
+    const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
+    
+    // Get shop's access token
+    const shopResult = await pool.query('SELECT access_token FROM shops WHERE shop = $1', [shopDomain]);
+    
+    if (shopResult.rows.length === 0) {
+      return res.status(401).json({ error: 'Shop not found or not authenticated' });
+    }
+    
+    const { access_token } = shopResult.rows[0];
+    
+    // Fetch themes from Shopify API
+    const themesUrl = `https://${shopDomain}/admin/api/2024-07/themes.json`;
+    const response = await axios.get(themesUrl, {
+      headers: {
+        'X-Shopify-Access-Token': access_token,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    // Find the active/published theme
+    const activeTheme = response.data.themes.find(theme => theme.role === 'main');
+    
+    if (!activeTheme) {
+      return res.status(404).json({ error: 'No active theme found' });
+    }
+    
+    console.log('🎨 [BACKEND] Active theme found:', {
+      shop: shopDomain,
+      themeId: activeTheme.id,
+      themeName: activeTheme.name,
+      timestamp: new Date().toISOString()
+    });
+    
+    res.json({ 
+      themeId: activeTheme.id,
+      themeName: activeTheme.name,
+      themeRole: activeTheme.role
+    });
+  } catch (error) {
+    console.error('Theme API error:', error.response?.data || error.message);
+    
+    if (error.response?.status === 401) {
+      return res.status(401).json({ error: 'Authentication failed' });
+    }
+    
+    res.status(500).json({ error: 'Failed to fetch theme information' });
+  }
+});
+
 // Admin API endpoints
 // Admin dashboard overview
 app.get('/api/admin/dashboard', async (req, res) => {
