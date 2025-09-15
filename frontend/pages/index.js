@@ -417,9 +417,9 @@ function Home() {
         return;
       }
       
-      // Build the Shopify Theme Editor deep link
+      // Build the Shopify Theme Editor deep link for theme app extensions
       const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
-      const themeEditorUrl = `https://${shopDomain}/admin/themes/${activeThemeId}/editor?context=apps&activateAppId=${process.env.NEXT_PUBLIC_SHOPIFY_API_KEY}/tracking-widget`;
+      const themeEditorUrl = `https://${shopDomain}/admin/themes/${activeThemeId}/editor?template=index&addAppBlockId=${process.env.NEXT_PUBLIC_SHOPIFY_API_KEY}/tracking-widget&target=newAppsSection`;
       
       console.log('Opening theme editor:', themeEditorUrl);
       
